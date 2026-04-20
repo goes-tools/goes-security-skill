@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should set all security flags on auth cookies', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Cookie Security Flags');
   await allure.story('Auth cookies must have HttpOnly, Secure, SameSite=Strict, Path=/');
@@ -52,15 +53,18 @@ it('PENTEST: should set all security flags on auth cookies', async () => {
     });
   });
 
-  await attach('Cookie flags (output)', {
+  await allure.attachment('Cookie flags (output)', JSON.stringify({
     httpOnly: true,
     secure: true,
     sameSite: 'Strict',
     path: '/',
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should align cookie max-age with refresh token lifetime', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('Cookie Lifetime Alignment');
   await allure.story('Cookie max-age and refresh token duration must match');
@@ -83,10 +87,12 @@ it('should align cookie max-age with refresh token lifetime', async () => {
     expect(Math.abs(cookieMaxAge - refreshTokenTtl)).toBeLessThan(60);
   });
 
-  await attach('Lifetime alignment (output)', {
+  await allure.attachment('Lifetime alignment (output)', JSON.stringify({
     cookieMaxAge: cookieConfig.maxAge,
     refreshTokenTtl: authConfig.refreshTokenTtl,
     aligned: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

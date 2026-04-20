@@ -4,6 +4,7 @@
 
 ```typescript
 it('should configure all required HTTP security headers', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('Security Headers');
   await allure.story('All HTTP security headers configured per GOES Guide Section 8');
@@ -77,17 +78,20 @@ it('should configure all required HTTP security headers', async () => {
     expect(pp).toContain('camera=()');
   });
 
-  await attach('Security headers (output)', {
+  await allure.attachment('Security headers (output)', JSON.stringify({
     csp: !!response.headers['content-security-policy'],
     xContentType: response.headers['x-content-type-options'],
     xFrameOptions: response.headers['x-frame-options'],
     hsts: !!response.headers['strict-transport-security'],
     referrerPolicy: response.headers['referrer-policy'],
     permissionsPolicy: !!response.headers['permissions-policy'],
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should set Cache-Control: no-store for sensitive responses', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('Cache Control Header');
   await allure.story('Sensitive API responses must not be cached');
@@ -117,9 +121,11 @@ it('should set Cache-Control: no-store for sensitive responses', async () => {
     });
   }
 
-  await attach('Cache-Control results (output)', {
+  await allure.attachment('Cache-Control results (output)', JSON.stringify({
     endpoints: sensitiveEndpoints,
     allNoStore: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

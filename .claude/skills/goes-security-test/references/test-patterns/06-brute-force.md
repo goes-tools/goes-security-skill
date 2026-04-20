@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should lock account after 5 failed login attempts', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Brute Force Protection');
   await allure.story('Temporary lockout after consecutive failed attempts');
@@ -27,9 +28,9 @@ it('PENTEST: should lock account after 5 failed login attempts', async () => {
     prisma.loginAttempt.count.mockResolvedValue(5);
   });
 
-  await attach('Attacker state (input)', {
+  await allure.attachment('Attacker state (input)', JSON.stringify({
     email: 'victim@test.com', failedAttempts: 5, ip: '192.168.1.100',
-  });
+  }, null, 2), { contentType: 'application/json' });
 
   await allure.step('Execute: attempt #6 login', async () => {
     await expect(
@@ -41,12 +42,15 @@ it('PENTEST: should lock account after 5 failed login attempts', async () => {
     expect(prisma.accountLock.create).toHaveBeenCalled();
   });
 
-  await attach('Defense response (output)', {
+  await allure.attachment('Defense response (output)', JSON.stringify({
     locked: true, reason: 'Too many failed attempts', unlockIn: '15 minutes',
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should reset failed attempt counter after successful login', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Brute Force Protection');
   await allure.story('Reset attempt counter on successful login');
@@ -76,6 +80,8 @@ it('should reset failed attempt counter after successful login', async () => {
     );
   });
 
-  await attach('Result (output)', { attemptsReset: true });
+  await allure.attachment('Result (output)', JSON.stringify({ attemptsReset: true }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

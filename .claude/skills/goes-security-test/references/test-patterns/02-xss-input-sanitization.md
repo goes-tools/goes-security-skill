@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should sanitize user input to prevent XSS injection', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('XSS Prevention / Input Sanitization');
   await allure.story('Sanitize all user input before processing or storing');
@@ -46,11 +47,13 @@ it('PENTEST: should sanitize user input to prevent XSS injection', async () => {
     });
   }
 
-  await attach('XSS payloads tested (input)', { payloads: xssPayloads });
-  await attach('Defense result (output)', { allPayloadsBlocked: true });
+  await allure.attachment('XSS payloads tested (input)', JSON.stringify({ payloads: xssPayloads }, null, 2), { contentType: 'application/json' });
+  await allure.attachment('Defense result (output)', JSON.stringify({ allPayloadsBlocked: true }, null, 2), { contentType: 'application/json' });
+  await allure.flush();
 });
 
 it('PENTEST: should not expose sensitive data in source files or responses', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Sensitive Data Exposure');
   await allure.story('No API keys, secrets, or personal data leaked in responses');
@@ -90,6 +93,7 @@ it('PENTEST: should not expose sensitive data in source files or responses', asy
     expect(JSON.stringify(result)).not.toMatch(/\$2b\$/); // no bcrypt hash
   });
 
-  await attach('Response fields (output)', { fields: Object.keys(result) });
+  await allure.attachment('Response fields (output)', JSON.stringify({ fields: Object.keys(result) }, null, 2), { contentType: 'application/json' });
+  await allure.flush();
 });
 ```

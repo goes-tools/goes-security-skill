@@ -36,15 +36,9 @@ test/
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import * as allure from 'allure-js-commons';
+import { AllureCompat } from '@security-reporter/metadata';
 import { AppModule } from '../../src/app.module';
 
-// Evidence helper
-async function attach(name: string, data: unknown) {
-  await allure.attachment(name, JSON.stringify(data, null, 2), {
-    contentType: 'application/json',
-  });
-}
 
 describe('App Security — E2E', () => {
   let app: INestApplication;
@@ -86,6 +80,7 @@ describe('App Security — E2E', () => {
 
 ```typescript
 it('should include all required security headers in response', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('Security Headers');
   await allure.severity('critical');
@@ -107,7 +102,9 @@ it('should include all required security headers in response', async () => {
 
   // ... more header checks
 
-  await attach('Response headers (output)', response.headers);
+  await allure.attachment('Response headers (output)', JSON.stringify(response.headers, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```
 

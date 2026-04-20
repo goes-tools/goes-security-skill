@@ -57,9 +57,10 @@ fs.writeFileSync(
 Add clickable links to OWASP vulnerability pages in each test:
 
 ```typescript
-import * as allure from 'allure-js-commons';
+import { AllureCompat } from '@security-reporter/metadata';
 
 it('PENTEST: should prevent IDOR access', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('IDOR Prevention');
   await allure.severity('blocker');
@@ -69,6 +70,8 @@ it('PENTEST: should prevent IDOR access', async () => {
   await allure.link('https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/', 'OWASP API1:2023');
 
   // ... test code
+
+  await allure.flush();
 });
 ```
 
@@ -98,9 +101,12 @@ Assign ownership to each test so the report shows who is responsible:
 
 ```typescript
 it('PENTEST: should hash passwords with bcrypt', async () => {
+  const allure = new AllureCompat();
   await allure.owner('security-team');
   await allure.epic('Security');
   // ... test code
+
+  await allure.flush();
 });
 ```
 
@@ -202,6 +208,7 @@ After the first run, subsequent runs will show the trend graph on the dashboard.
 
 ```typescript
 it('PENTEST: should prevent access to another user resource (IDOR)', async () => {
+  const allure = new AllureCompat();
   // Metadata
   await allure.epic('Security');
   await allure.feature('IDOR Prevention');
@@ -264,16 +271,18 @@ it('PENTEST: should prevent access to another user resource (IDOR)', async () =>
     prisma.resource.findUnique.mockResolvedValue({ id: 'resource-1', userId: 'user-2' });
   });
 
-  await attach('Attacker attempt (input)', {
+  await allure.attachment('Attacker attempt (input)', JSON.stringify({
     attackerUserId: 'user-1', resourceId: 'resource-1', ownerUserId: 'user-2',
-  });
+  }, null, 2), { contentType: 'application/json' });
 
   await allure.step('Execute: attacker requests another user\'s resource', async () => {
     await expect(service.findOne('resource-1', 'user-1')).rejects.toThrow('Unauthorized');
   });
 
-  await attach('Defense executed (output)', {
+  await allure.attachment('Defense executed (output)', JSON.stringify({
     accessBlocked: true, reason: 'Resource does not belong to the authenticated user',
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

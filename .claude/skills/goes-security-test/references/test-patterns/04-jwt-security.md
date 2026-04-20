@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should enforce short-lived access tokens', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Token Lifetime Enforcement');
   await allure.story('Access token must expire within 15 minutes');
@@ -34,13 +35,15 @@ it('PENTEST: should enforce short-lived access tokens', async () => {
     expect(lifetime).toBeLessThanOrEqual(900); // 15 min = 900 seconds
   });
 
-  await attach('Token lifetime (output)', {
+  await allure.attachment('Token lifetime (output)', JSON.stringify({
     accessTokenLifetime: '<=15 min',
     hasRefreshToken: !!tokens.refreshToken,
-  });
+  }, null, 2), { contentType: 'application/json' });
+  await allure.flush();
 });
 
 it('PENTEST: should use RS256 or ES256 for JWT signing', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('JWT Signing Algorithm');
   await allure.story('JWT must be signed with RS256 or ES256, never HS256 with weak secret');
@@ -67,10 +70,12 @@ it('PENTEST: should use RS256 or ES256 for JWT signing', async () => {
     expect(decoded.header.alg).not.toBe('HS256');
   });
 
-  await attach('JWT algorithm (output)', { algorithm: 'RS256', safe: true });
+  await allure.attachment('JWT algorithm (output)', JSON.stringify({ algorithm: 'RS256', safe: true }, null, 2), { contentType: 'application/json' });
+  await allure.flush();
 });
 
 it('PENTEST: should validate all JWT claims on every request', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('JWT Claims Validation');
   await allure.story('Validate signature, exp, iat, iss, aud on every JWT');
@@ -101,13 +106,15 @@ it('PENTEST: should validate all JWT claims on every request', async () => {
     });
   }
 
-  await attach('Invalid tokens tested (output)', {
+  await allure.attachment('Invalid tokens tested (output)', JSON.stringify({
     total: invalidTokens.length,
     allRejected: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+  await allure.flush();
 });
 
 it('PENTEST: should NOT store sensitive data in JWT payload', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('JWT Payload Security');
   await allure.story('JWT payload must not contain passwords, secrets, or personal data');
@@ -145,9 +152,10 @@ it('PENTEST: should NOT store sensitive data in JWT payload', async () => {
     expect(decoded).toHaveProperty('iat');
   });
 
-  await attach('JWT payload fields (output)', {
+  await allure.attachment('JWT payload fields (output)', JSON.stringify({
     fields: Object.keys(jwtService.decode(tokens.accessToken)),
     sensitiveDataFound: false,
-  });
+  }, null, 2), { contentType: 'application/json' });
+  await allure.flush();
 });
 ```

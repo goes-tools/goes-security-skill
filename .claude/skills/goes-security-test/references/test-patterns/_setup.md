@@ -2,16 +2,9 @@
 
 ```typescript
 import { Test, TestingModule } from '@nestjs/testing';
-import * as allure from 'allure-js-commons';
+import { AllureCompat } from '@security-reporter/metadata';
 import { MyService } from '../../src/modules/my-module/my-service.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
-
-// Evidence helper — define ONCE per file
-async function attach(name: string, data: unknown) {
-  await allure.attachment(name, JSON.stringify(data, null, 2), {
-    contentType: 'application/json',
-  });
-}
 
 // Mock factory — adapt to the project's ORM (Prisma, TypeORM, etc.)
 function createMockPrisma() {

@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should detect REPLAY ATTACK and revoke entire token family', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Replay Attack Detection');
   await allure.story('Detect token reuse and revoke entire family');
@@ -32,9 +33,9 @@ it('PENTEST: should detect REPLAY ATTACK and revoke entire token family', async 
     prisma.refreshToken.updateMany.mockResolvedValue({ count: 3 });
   });
 
-  await attach('Reused token by attacker (input)', {
+  await allure.attachment('Reused token by attacker (input)', JSON.stringify({
     token: 'reused-token', isRevoked: true, familyId: 'family-1',
-  });
+  }, null, 2), { contentType: 'application/json' });
 
   await allure.step('Execute: attacker reuses revoked token', async () => {
     await expect(
@@ -49,12 +50,15 @@ it('PENTEST: should detect REPLAY ATTACK and revoke entire token family', async 
     });
   });
 
-  await attach('Defense actions executed (output)', {
+  await allure.attachment('Defense actions executed (output)', JSON.stringify({
     replayDetected: true, familyRevoked: 'family-1', tokensAffected: 3,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should rotate refresh token after every use', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Token Rotation');
   await allure.story('Issue new refresh token and revoke old one on each refresh');
@@ -91,9 +95,11 @@ it('should rotate refresh token after every use', async () => {
     expect(result.refreshToken).not.toBe('current-token');
   });
 
-  await attach('Token rotation result (output)', {
+  await allure.attachment('Token rotation result (output)', JSON.stringify({
     oldTokenRevoked: true,
     newTokenIssued: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

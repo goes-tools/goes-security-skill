@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should respond in constant time when email does not exist', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Timing Attack Prevention');
   await allure.story('Constant response time regardless of user existence');
@@ -29,10 +30,10 @@ it('PENTEST: should respond in constant time when email does not exist', async (
     prisma.user.findUnique.mockResolvedValue(null);
   });
 
-  await attach('Attacker credentials (input)', {
+  await allure.attachment('Attacker credentials (input)', JSON.stringify({
     email: 'nonexistent@test.com',
     password: 'any-password',
-  });
+  }, null, 2), { contentType: 'application/json' });
 
   await allure.step('Execute: attempt login with nonexistent email', async () => {
     await expect(
@@ -55,10 +56,12 @@ it('PENTEST: should respond in constant time when email does not exist', async (
     }
   });
 
-  await attach('Response to attacker (output)', {
+  await allure.attachment('Response to attacker (output)', JSON.stringify({
     statusCode: 401,
     message: 'Invalid credentials',
     note: 'Same message and same timing as if the email existed',
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

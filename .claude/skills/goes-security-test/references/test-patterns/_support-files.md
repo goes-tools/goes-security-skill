@@ -53,7 +53,8 @@ const reportHistoryDir = path.resolve(__dirname, '..', 'allure-report', 'history
 const resultsHistoryDir = path.resolve(resultsDir, 'history');
 if (fs.existsSync(reportHistoryDir)) {
   if (!fs.existsSync(resultsHistoryDir)) {
-    fs.mkdirSync(resultsHistoryDir, { recursive: true });
+    fs.mkdirSync(resultsHistoryDir, { recursive: true 
+});
   }
   const historyFiles = fs.readdirSync(reportHistoryDir);
   for (const file of historyFiles) {

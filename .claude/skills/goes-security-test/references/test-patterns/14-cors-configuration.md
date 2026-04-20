@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should restrict CORS to allowed origins only (no wildcard)', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('CORS Origin Restriction');
   await allure.story('Access-Control-Allow-Origin must not be wildcard *');
@@ -39,13 +40,16 @@ it('PENTEST: should restrict CORS to allowed origins only (no wildcard)', async 
     }
   });
 
-  await attach('CORS origin config (output)', {
+  await allure.attachment('CORS origin config (output)', JSON.stringify({
     wildcard: false,
     origins: corsConfig.origin,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should restrict CORS methods to only those needed', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('CORS Methods Restriction');
   await allure.story('Only necessary HTTP methods allowed in CORS');
@@ -67,10 +71,13 @@ it('should restrict CORS methods to only those needed', async () => {
     expect(allowedMethods).not.toContain('*');
   });
 
-  await attach('CORS methods (output)', { methods: corsConfig.methods });
+  await allure.attachment('CORS methods (output)', JSON.stringify({ methods: corsConfig.methods }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should configure CORS credentials correctly', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('CORS Credentials Policy');
   await allure.story('credentials: true only if cookies are needed');
@@ -99,10 +106,12 @@ it('should configure CORS credentials correctly', async () => {
     expect(corsConfig.maxAge).toBeGreaterThanOrEqual(600);
   });
 
-  await attach('CORS credentials config (output)', {
+  await allure.attachment('CORS credentials config (output)', JSON.stringify({
     credentials: corsConfig.credentials,
     maxAge: corsConfig.maxAge,
     originNotWildcard: corsConfig.origin !== '*',
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

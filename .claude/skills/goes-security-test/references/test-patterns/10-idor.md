@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should prevent access to another user resource (IDOR)', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('IDOR Prevention');
   await allure.story('User cannot access resources belonging to another user by ID');
@@ -31,9 +32,9 @@ it('PENTEST: should prevent access to another user resource (IDOR)', async () =>
     });
   });
 
-  await attach('Attacker attempt (input)', {
+  await allure.attachment('Attacker attempt (input)', JSON.stringify({
     resourceId: 'resource-1', attackerUserId: 'user-1', ownerUserId: 'user-2',
-  });
+  }, null, 2), { contentType: 'application/json' });
 
   await allure.step('Execute: attacker requests another user\'s resource', async () => {
     await expect(
@@ -53,11 +54,13 @@ it('PENTEST: should prevent access to another user resource (IDOR)', async () =>
     ).rejects.toThrow('Unauthorized');
   });
 
-  await attach('Defense executed (output)', {
+  await allure.attachment('Defense executed (output)', JSON.stringify({
     readBlocked: true,
     updateBlocked: true,
     deleteBlocked: true,
     reason: 'Resource does not belong to the authenticated user',
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should hash passwords with bcrypt, Argon2, or PBKDF2', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Password Hashing Strength');
   await allure.story('Passwords must be hashed with a secure algorithm before storage');
@@ -43,14 +44,16 @@ it('PENTEST: should hash passwords with bcrypt, Argon2, or PBKDF2', async () => 
     expect(costFactor).toBeGreaterThanOrEqual(10);
   });
 
-  await attach('Password storage (output)', {
+  await allure.attachment('Password storage (output)', JSON.stringify({
     plainText: false,
     algorithm: 'bcrypt',
     costFactor: '>=10',
-  });
+  }, null, 2), { contentType: 'application/json' });
+  await allure.flush();
 });
 
 it('PENTEST: should reject weak passwords', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Weak Password Prevention');
   await allure.story('Reject passwords that are too short, common, or match the username');
@@ -85,13 +88,16 @@ it('PENTEST: should reject weak passwords', async () => {
     });
   }
 
-  await attach('Weak passwords tested (output)', {
+  await allure.attachment('Weak passwords tested (output)', JSON.stringify({
     total: weakPasswords.length,
     allRejected: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should store passwords only on the server side', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Server-side Password Storage');
   await allure.story('Passwords are never returned in API responses');
@@ -124,6 +130,8 @@ it('should store passwords only on the server side', async () => {
     }
   });
 
-  await attach('Result (output)', { passwordExposedInProfile: false, passwordExposedInList: false });
+  await allure.attachment('Result (output)', JSON.stringify({ passwordExposedInProfile: false, passwordExposedInList: false }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

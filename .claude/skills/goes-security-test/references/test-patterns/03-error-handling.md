@@ -4,6 +4,7 @@
 
 ```typescript
 it('should return generic error messages without exposing internals', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Generic Error Messages');
   await allure.story('Error responses must not expose stack traces, queries, or paths');
@@ -43,13 +44,15 @@ it('should return generic error messages without exposing internals', async () =
     });
   }
 
-  await attach('Error handling result (output)', {
+  await allure.attachment('Error handling result (output)', JSON.stringify({
     scenariosTested: errorScenarios.length,
     allGeneric: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+  await allure.flush();
 });
 
 it('should return 404 for undefined routes', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('Unknown Route Handling');
   await allure.story('Return 404 for any route not defined in the application');
@@ -81,6 +84,7 @@ it('should return 404 for undefined routes', async () => {
     });
   }
 
-  await attach('Routes tested (output)', { routes: undefinedRoutes, all404: true });
+  await allure.attachment('Routes tested (output)', JSON.stringify({ routes: undefinedRoutes, all404: true }, null, 2), { contentType: 'application/json' });
+  await allure.flush();
 });
 ```

@@ -4,6 +4,7 @@
 
 ```typescript
 it('should create an audit log entry when creating a resource', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Audit');
   await allure.feature('Audit Log');
   await allure.story('Log CREATE event in audit log');
@@ -36,12 +37,15 @@ it('should create an audit log entry when creating a resource', async () => {
     });
   });
 
-  await attach('Audit event (output)', {
+  await allure.attachment('Audit event (output)', JSON.stringify({
     action: 'CREATE', resource: 'System', userId: 'user-123',
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should log failed login attempts with IP and timestamp', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Audit');
   await allure.feature('Audit Log');
   await allure.story('Log failed login attempts for security monitoring');
@@ -77,15 +81,18 @@ it('should log failed login attempts with IP and timestamp', async () => {
     });
   });
 
-  await attach('Audit log entry (output)', {
+  await allure.attachment('Audit log entry (output)', JSON.stringify({
     email: 'attacker@test.com',
     ip: '192.168.1.100',
     success: false,
     logged: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should NOT log sensitive data (passwords, tokens, secrets)', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Audit');
   await allure.feature('Audit Log');
   await allure.story('Audit logs must never contain passwords, tokens, or secrets');
@@ -127,10 +134,12 @@ it('should NOT log sensitive data (passwords, tokens, secrets)', async () => {
     }
   });
 
-  await attach('Sensitive data check (output)', {
+  await allure.attachment('Sensitive data check (output)', JSON.stringify({
     passwordLogged: false,
     tokenLogged: false,
     secretLogged: false,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

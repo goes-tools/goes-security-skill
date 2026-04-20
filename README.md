@@ -1,6 +1,8 @@
 # goes-security-skill
 
-Claude skill for generating automated security tests with **Allure Report** for **NestJS + Jest** projects.
+Claude skill for generating automated security tests with a **Custom HTML Reporter** for **NestJS + Jest** projects.
+
+No Java, no Allure — pure Node.js reporter that generates a self-contained HTML file with sidebar navigation, charts, and evidence highlighting.
 
 Covers the **GOES Cybersecurity Checklist** (60 items), **OWASP Top 10**, and **OWASP API Security Top 10**.
 
@@ -28,13 +30,15 @@ your-nestjs-project/
     skills/
       goes-security-test/
         SKILL.md                          <-- instructions for Claude
+        reporter/
+          html-reporter.js                <-- custom HTML reporter (bundled)
+          metadata.ts                     <-- metadata collector (bundled)
         references/
           goes-checklist.md               <-- 60 items GOES checklist
           test-patterns/                  <-- 21 code patterns (100% coverage)
             _setup.md
             _severity-guide.md
             01-crud-validation.md
-            02-xss-input-sanitization.md
             ...
             21-audit-log.md
   src/
@@ -48,24 +52,12 @@ Open **Claude Code** or **Claude Cowork** in your project folder.
 
 ### 4. Ask Claude to generate the tests
 
-Copy and paste any of these prompts:
-
 ```
 Generate security tests for all services using the goes-security-test skill.
-Cover all GOES checklist items with OWASP traceability and Allure Report.
+Cover all GOES checklist items with OWASP traceability.
 ```
 
-```
-Generate security tests for the AuthService.
-Use the goes-security-test skill and cover all applicable GOES checklist items.
-```
-
-```
-Generate security tests for the guards and middleware.
-Include E2E tests for security headers and HTTP methods.
-```
-
-Claude reads the skill, analyzes your actual code, installs dependencies, generates the tests, runs them, and opens the Allure report automatically.
+Claude reads the skill, analyzes your actual code, configures Jest with the bundled reporter, generates the tests, runs them, and generates the HTML report automatically.
 
 ---
 
@@ -74,29 +66,15 @@ Claude reads the skill, analyzes your actual code, installs dependencies, genera
 When you activate the skill, Claude:
 
 1. Analyzes your services, controllers, guards, and middleware
-2. Installs dependencies if missing (`allure-jest`, `allure-js-commons`, `allure`) — no Java required
-3. Configures Jest to generate Allure reports
-4. Creates `test/security/` folder with `.security.spec.ts` files containing:
-   - Allure metadata (epic, feature, story, severity, tags)
+2. Installs dependencies if missing (`ts-jest`, `@types/jest`) — no Java required
+3. Configures Jest to use the bundled reporter directly from `.claude/` (no file duplication)
+4. Creates `test/security/` folder with `.security-html.spec.ts` files containing:
+   - Metadata (epic, feature, story, severity, tags) via `AllureCompat`
    - Triple traceability: `GOES Checklist Rxx` + `OWASP Axx` + `OWASP APIxx`
    - Visible steps (Prepare / Execute / Verify)
-   - JSON attachments (attacker payload + defense response)
-   - Markdown descriptions (vulnerability + defense)
+   - JSON evidence (attacker payload + defense response)
 5. Runs all security tests automatically
-6. Generates and opens the Allure report in your browser
-
-### Generated test structure
-
-```
-test/
-  security/
-    auth-service.security.spec.ts
-    users-service.security.spec.ts
-    roles-guard.security.spec.ts
-    helmet-middleware.security.spec.ts
-    ...
-  allure-setup.ts
-```
+6. Generates the HTML report at `reports/security/security-report.html`
 
 ---
 
@@ -109,19 +87,13 @@ test/
 > Generate security tests for the guards and middleware
 ```
 
-### View the interactive report
-
-After Claude runs the tests, the report opens automatically. To re-open it later:
+### View the report
 
 ```bash
-npm run test:allure
+npm run test:security
+# Report generated at: reports/security/security-report.html
+# Open it in your browser — no extra commands needed
 ```
-
-### Filter in Allure Report
-
-- **Epic**: Security, Authentication, Domain, Configuration, Audit, Files
-- **Tag**: `Pentest`, `OWASP A07`, `GOES Checklist R27`, `CRUD`, `Auth`, `Config`
-- **Severity**: blocker, critical, normal, minor
 
 ---
 
@@ -175,7 +147,7 @@ API1 (Object Level Auth), API2 (Broken Auth), API3 (Property Auth), API4 (Resour
 
 - **NestJS** project with Jest configured
 - **Node.js 18+**
-- **No Java required** — uses the pure JavaScript `allure` package (v3+)
+- **No Java required** — uses a custom pure Node.js HTML reporter
 
 ---
 

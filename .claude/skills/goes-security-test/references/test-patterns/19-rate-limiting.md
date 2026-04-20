@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should reject requests that exceed the rate limit', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Rate Limiting');
   await allure.story('Block excessive requests per IP');
@@ -33,12 +34,12 @@ it('PENTEST: should reject requests that exceed the rate limit', async () => {
     mockThrottler.isRateLimited.mockReturnValue(true);
   });
 
-  await attach('Attacker state (input)', {
+  await allure.attachment('Attacker state (input)', JSON.stringify({
     ip: '192.168.1.100',
     endpoint: '/auth/login',
     requestsInLastMinute: 6,
     limit: 5,
-  });
+  }, null, 2), { contentType: 'application/json' });
 
   await allure.step('Execute: request that exceeds the limit', async () => {
     await expect(
@@ -50,15 +51,18 @@ it('PENTEST: should reject requests that exceed the rate limit', async () => {
     expect(mockResponse.statusCode).toBe(429);
   });
 
-  await attach('Defense response (output)', {
+  await allure.attachment('Defense response (output)', JSON.stringify({
     statusCode: 429,
     message: 'Too Many Requests',
     retryAfter: '60 seconds',
     note: 'IP temporarily blocked for exceeding limit',
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should have stricter rate limit on login endpoint', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Rate Limiting');
   await allure.story('Login endpoint has lower rate limit than normal endpoints');
@@ -81,9 +85,11 @@ it('should have stricter rate limit on login endpoint', async () => {
     expect(metadata).toBeLessThanOrEqual(10);
   });
 
-  await attach('Rate limit config (output)', {
+  await allure.attachment('Rate limit config (output)', JSON.stringify({
     loginLimit: '5 req/min',
     normalLimit: '100 req/min',
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

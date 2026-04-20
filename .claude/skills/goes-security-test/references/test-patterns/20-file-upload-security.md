@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should validate file extension AND magic bytes', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Files');
   await allure.feature('File Extension + Magic Byte Validation');
   await allure.story('Validate both extension and magic bytes, not just content-type');
@@ -41,13 +42,16 @@ it('PENTEST: should validate file extension AND magic bytes', async () => {
     });
   }
 
-  await attach('Malicious files tested (input)', {
+  await allure.attachment('Malicious files tested (input)', JSON.stringify({
     total: maliciousFiles.length,
     allRejected: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should only accept files with whitelisted extensions', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Files');
   await allure.feature('File Extension Whitelist');
   await allure.story('Only .pdf, .jpg, .jpeg, .png files are accepted');
@@ -75,10 +79,13 @@ it('should only accept files with whitelisted extensions', async () => {
     });
   }
 
-  await attach('Blocked extensions (output)', { extensions: blockedExtensions, allBlocked: true });
+  await allure.attachment('Blocked extensions (output)', JSON.stringify({ extensions: blockedExtensions, allBlocked: true }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should enforce maximum file size limit', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Files');
   await allure.feature('File Size Limit');
   await allure.story('Reject files exceeding the maximum allowed size');
@@ -106,10 +113,13 @@ it('should enforce maximum file size limit', async () => {
     ).rejects.toThrow();
   });
 
-  await attach('File size test (output)', { maxSize: '10MB', oversizeRejected: true });
+  await allure.attachment('File size test (output)', JSON.stringify({ maxSize: '10MB', oversizeRejected: true }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should rename uploaded files with UUID (never use original name)', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Files');
   await allure.feature('File UUID Rename');
   await allure.story('Files are renamed with UUID to prevent path traversal and overwrites');
@@ -154,9 +164,11 @@ it('should rename uploaded files with UUID (never use original name)', async () 
     });
   }
 
-  await attach('File rename results (output)', {
+  await allure.attachment('File rename results (output)', JSON.stringify({
     allRenamed: true,
     noPathTraversal: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

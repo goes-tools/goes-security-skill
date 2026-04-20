@@ -4,6 +4,7 @@
 
 ```typescript
 it('should create a record successfully with valid data', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Domain');
   await allure.feature('Record Management');
   await allure.story('Create new record with valid DTO');
@@ -26,7 +27,7 @@ it('should create a record successfully with valid data', async () => {
     prisma.record.create.mockResolvedValue({ id: 1, ...dto });
   });
 
-  await attach('DTO sent (input)', dto);
+  await allure.attachment('DTO sent (input)', JSON.stringify(dto, null, 2), { contentType: 'application/json' });
 
   const result = await allure.step('Execute: service.create(dto)', async () => {
     return service.create(dto);
@@ -37,10 +38,12 @@ it('should create a record successfully with valid data', async () => {
     expect(result.name).toBe(dto.name);
   });
 
-  await attach('Created record (output)', result);
+  await allure.attachment('Created record (output)', JSON.stringify(result, null, 2), { contentType: 'application/json' });
+  await allure.flush();
 });
 
 it('should reject invalid DTO with missing required fields', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Domain');
   await allure.feature('Input Validation');
   await allure.story('Reject DTO missing required fields');
@@ -68,6 +71,7 @@ it('should reject invalid DTO with missing required fields', async () => {
     });
   }
 
-  await attach('Invalid DTOs tested (output)', { total: invalidDtos.length, allRejected: true });
+  await allure.attachment('Invalid DTOs tested (output)', JSON.stringify({ total: invalidDtos.length, allRejected: true }, null, 2), { contentType: 'application/json' });
+  await allure.flush();
 });
 ```

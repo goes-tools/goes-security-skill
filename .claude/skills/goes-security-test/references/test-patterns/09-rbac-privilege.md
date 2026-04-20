@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should enforce role-based access on every endpoint', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Authentication');
   await allure.feature('RBAC Enforcement');
   await allure.story('Server validates role/permission on every request');
@@ -41,13 +42,16 @@ it('PENTEST: should enforce role-based access on every endpoint', async () => {
     });
   }
 
-  await attach('RBAC test results (output)', {
+  await allure.attachment('RBAC test results (output)', JSON.stringify({
     scenarios: testCases.length,
     allCorrect: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('PENTEST: should prevent privilege escalation via role manipulation', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Authentication');
   await allure.feature('Privilege Escalation Prevention');
   await allure.story('Low-privilege user cannot elevate their own role');
@@ -85,9 +89,11 @@ it('PENTEST: should prevent privilege escalation via role manipulation', async (
     }
   });
 
-  await attach('Privilege escalation attempt (output)', {
+  await allure.attachment('Privilege escalation attempt (output)', JSON.stringify({
     escalationBlocked: true,
     reason: 'Only ADMIN can change roles',
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

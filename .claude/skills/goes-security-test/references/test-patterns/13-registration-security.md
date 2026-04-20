@@ -4,6 +4,7 @@
 
 ```typescript
 it('should prevent duplicate user registration', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Authentication');
   await allure.feature('Duplicate Registration Prevention');
   await allure.story('Same email cannot be registered twice');
@@ -31,10 +32,13 @@ it('should prevent duplicate user registration', async () => {
     expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
-  await attach('Duplicate registration (output)', { blocked: true, reason: 'Email already registered' });
+  await allure.attachment('Duplicate registration (output)', JSON.stringify({ blocked: true, reason: 'Email already registered' }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('PENTEST: should reject disposable email addresses', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Authentication');
   await allure.feature('Disposable Email Rejection');
   await allure.story('Temporary/disposable email providers are blocked at registration');
@@ -67,13 +71,16 @@ it('PENTEST: should reject disposable email addresses', async () => {
     });
   }
 
-  await attach('Disposable emails tested (output)', {
+  await allure.attachment('Disposable emails tested (output)', JSON.stringify({
     total: disposableEmails.length,
     allRejected: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should provide secure account recovery flow', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Authentication');
   await allure.feature('Account Recovery');
   await allure.story('Password reset via email with secure time-limited token');
@@ -111,9 +118,11 @@ it('should provide secure account recovery flow', async () => {
     }
   });
 
-  await attach('Account recovery (output)', {
+  await allure.attachment('Account recovery (output)', JSON.stringify({
     noUserEnumeration: true,
     tokenExpiry: '<=60 minutes',
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

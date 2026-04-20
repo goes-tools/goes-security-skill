@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should block forced navigation to protected routes', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Authentication');
   await allure.feature('Forced Browsing Prevention');
   await allure.story('Unauthenticated users cannot access private endpoints');
@@ -35,13 +36,16 @@ it('PENTEST: should block forced navigation to protected routes', async () => {
     });
   }
 
-  await attach('Forced browsing test (output)', {
+  await allure.attachment('Forced browsing test (output)', JSON.stringify({
     endpoints: protectedEndpoints,
     allBlocked: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should validate token on every private request', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Authentication');
   await allure.feature('Token Validation Per Request');
   await allure.story('Every private endpoint validates the JWT on each request');
@@ -76,11 +80,13 @@ it('should validate token on every private request', async () => {
     await expect(guard.canActivate(noTokenContext)).rejects.toThrow();
   });
 
-  await attach('Token validation results (output)', {
+  await allure.attachment('Token validation results (output)', JSON.stringify({
     validAccepted: true,
     expiredRejected: true,
     tamperedRejected: true,
     missingRejected: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

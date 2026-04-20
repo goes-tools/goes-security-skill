@@ -1,322 +1,469 @@
 ---
-name: generate-security-tests
-description: >
-  This skill should be used when the user asks to "generate security tests",
-  "create pentest specs", "generate GOES tests", "add allure tests",
-  "create security specs", "checklist GOES tests", "OWASP tests",
-  "security test generator", "generate tests de seguridad",
-  "crear tests de seguridad", "generar specs de seguridad",
-  or any variation requesting automated security test generation for a NestJS project.
-metadata:
-  version: "2.0.0"
-  coverage: "60 items GOES Checklist + OWASP Top 10 + API Security Top 10"
+name: goes-security-testing
+description: "Genera tests de seguridad con un Custom HTML Reporter (sin Java ni Allure) cubriendo el Checklist de Ciberseguridad GOES, OWASP Top 10 y OWASP API Security Top 10. Configura Jest + custom reporter, y crea specs completas con evidencia JSON, trazabilidad regulatoria y clasificacion por epicas. El reporte HTML incluye sidebar con navegacion Epic-Feature-Story, modal de detalle, graficos SVG, tema oscuro, busqueda y export PDF. Activar cuando el usuario pida: tests de seguridad, checklist GOES, pentest tests, security specs, reporte de seguridad HTML, security report, o cualquier variante."
 ---
 
-# GOES Security Test Generator
+# GOES Security Testing — Skill para NestJS + Jest + Custom HTML Reporter
 
-Generate professional security tests with Allure Report for NestJS + Jest projects.
-Covers the full GOES Cybersecurity Checklist (60 items), OWASP Top 10, and OWASP API Security Top 10.
+## Resumen
 
-## Output Structure
+Este skill genera tests de seguridad profesionales para proyectos **NestJS + Jest** con un **Custom HTML Reporter** (sin Java, sin Allure).
+Cubre **60 items** del Checklist de Ciberseguridad GOES, **OWASP Top 10** y **OWASP API Security Top 10**.
 
-All generated test files MUST go inside `test/security/`:
+El reporte HTML es un archivo unico autocontenido con:
+- Sidebar con navegacion por Epic > Feature > Story
+- Modal de detalle con severity badges, tags, steps y evidencia JSON con syntax highlighting
+- Graficos SVG (pie de pass/fail, barras por severity, donut OWASP)
+- Tema oscuro, busqueda en tiempo real, export PDF
+
+---
+
+## PASO 1: Analizar el proyecto
+
+Antes de generar cualquier codigo, analizar la estructura del proyecto:
 
 ```
-project-root/
-  test/
-    security/
-      auth-service.security.spec.ts
-      users-service.security.spec.ts
-      roles-guard.security.spec.ts
-      helmet-middleware.security.spec.ts
-      ...
-    allure-setup.ts
-  allure-categories.json
-  src/
-  package.json
+1. Leer package.json para identificar:
+   - Framework (NestJS, Express, etc.)
+   - ORM (Prisma, TypeORM, Sequelize, etc.)
+   - Version de Jest
+   - Dependencias de auth (passport, @nestjs/jwt, bcrypt, etc.)
+
+2. Listar los modulos/servicios existentes:
+   - Glob: src/modules/**/**.service.ts
+   - Glob: src/modules/**/**.controller.ts
+   - Glob: src/**/*.module.ts
+
+3. Identificar que ya existe:
+   - Archivos .spec.ts existentes
+   - Configuracion de Jest actual
+   - Guards, interceptors, middleware de seguridad
 ```
 
-File naming convention: `<source-name>.security.spec.ts`
-Examples:
-- `auth.service.ts` → `auth-service.security.spec.ts`
-- `roles.guard.ts` → `roles-guard.security.spec.ts`
-- `helmet.middleware.ts` → `helmet-middleware.security.spec.ts`
-- `users.controller.ts` → `users-controller.security.spec.ts`
+---
 
-## Execution Flow
+## PASO 2: Instalar dependencias (si no existen)
 
-Follow these 6 steps in order. Do NOT skip any step.
-
-### STEP 1: Analyze the project
-
-Read these files to understand the project structure:
-
-1. `package.json` — framework, ORM (Prisma or TypeORM), Jest config, auth dependencies
-2. `src/main.ts` — global middleware, pipes, guards, CORS, helmet (needed for E2E tests)
-3. Glob `src/modules/**/*.service.ts` — list all services
-4. Glob `src/modules/**/*.controller.ts` — list all controllers
-5. Glob `src/**/*.guard.ts` — security guards
-6. Glob `src/**/*.middleware.ts` — middleware (rate limit, helmet, cors, etc.)
-7. Glob `src/**/*.dto.ts` — DTOs and validation rules
-8. Check if `test/security/*.security.spec.ts` or `*.e2e.spec.ts` files already exist
-9. Detect ORM: `@prisma/client` → Prisma, `typeorm` / `@nestjs/typeorm` → TypeORM
-
-### STEP 2: Install dependencies (if missing)
-
-Check `package.json` devDependencies. Only install what is missing:
+Verificar en package.json y solo instalar lo que falte:
 
 ```bash
-npm install --save-dev allure-jest allure-js-commons allure jest-html-reporters supertest @types/supertest
+npm install --save-dev ts-jest @types/jest
 ```
 
-Note: The `allure` package (v3+) is pure JavaScript — no Java required.
-`supertest` is needed for E2E security tests (headers, routes, HTTP methods).
+**NO instalar Allure, allure-commandline, allure-jest ni jest-html-reporters.** Este sistema usa un reporter custom puro Node.js que no necesita Java ni dependencias externas de reporte.
 
-### STEP 3: Configure Jest + Allure
+---
 
-Modify `package.json` jest section:
+## PASO 3: Configurar el custom reporter
 
-- Set `"testEnvironment": "allure-jest/node"`
-- Add `"testEnvironmentOptions": { "resultsDir": "allure-results" }`
-- Add `"setupFiles": ["./test/allure-setup.ts"]`
-- Add jest-html-reporters to reporters array
-- Set `"testMatch"` to include `"**/test/security/**/*.spec.ts"`
+Este skill incluye el reporter bundled en `.claude/skills/goes-security-test/reporter/`. **NO copiar los archivos** — referenciarlos directamente para evitar duplicados.
 
-Add npm scripts to `package.json`:
+El reporter consiste en dos archivos:
+
+- **`reporter/html-reporter.js`** — Jest custom reporter (JavaScript puro, ~1600 lineas). Implementa `onRunComplete(testContexts, results)`: lee metadata JSON temporales, cruza con resultados de Jest, genera HTML autocontenido con sidebar, charts SVG, dark theme, busqueda y export PDF.
+- **`reporter/metadata.ts`** — Collector de metadata. Exporta `report()` y `AllureCompat`. Cada test registra epic, feature, story, severity, tags, steps, evidencia. Se escribe a archivos JSON temporales via `flush()`.
+
+**NO modificar los archivos del reporter.** Estan listos para usar.
+
+La estructura del proyecto sera:
+
+```
+test/security/
+├── *.security-html.spec.ts         ← Archivos de specs de seguridad
+└── jest-security-html.config.ts    ← Config de Jest (apunta a .claude/ reporter)
+```
+
+---
+
+## PASO 4: Configurar Jest
+
+### jest-security-html.config.ts
+
+```typescript
+import type { Config } from 'jest';
+import * as path from 'path';
+
+const reporterPath = path.resolve(__dirname, '../../.claude/skills/goes-security-test/reporter');
+
+const config: Config = {
+  moduleFileExtensions: ['js', 'json', 'ts'],
+  rootDir: '../..',
+  testMatch: ['<rootDir>/test/security/**/*.security-html.spec.ts'],
+  transform: {
+    '^.+\\.(t|j)s$': 'ts-jest',
+  },
+  testEnvironment: 'node',
+  moduleNameMapper: {
+    '^src/(.*)$': '<rootDir>/src/$1',
+    '^@security-reporter/(.*)$': path.join(reporterPath, '$1'),
+  },
+  reporters: [
+    'default',
+    [
+      path.join(reporterPath, 'html-reporter.js'),
+      {
+        outputPath: './reports/security/security-report.html',
+      },
+    ],
+  ],
+};
+
+export default config;
+```
+
+El alias `@security-reporter` permite que los specs importen metadata limpiamente:
+
+```typescript
+import { report } from '@security-reporter/metadata';
+```
+
+### Scripts npm (agregar a package.json)
+
 ```json
 {
-  "test:security": "jest --testPathPattern=test/security --verbose",
-  "test:allure": "npm run test:security && npx allure generate allure-results --clean -o allure-report && npx allure open allure-report",
-  "allure:generate": "npx allure generate allure-results --clean -o allure-report",
-  "allure:open": "npx allure open allure-report"
+  "test:security:html": "jest --config test/security/jest-security-html.config.ts --verbose"
 }
 ```
 
-Create the `test/security/` directory if it does not exist.
+Para generar el reporte:
+```bash
+npm run test:security:html
+# El HTML se genera en reports/security/security-report.html
+```
 
-Create support files using the exact templates from `references/test-patterns/_support-files.md`:
-- `test/allure-setup.ts` — copies categories to allure-results
-- `allure-categories.json` — custom failure categories (Pentest, Auth, Access Control, Config, Validation, Files)
-- Add `/allure-results`, `/allure-report`, `/reports` to `.gitignore`
-- Add `'@typescript-eslint/require-await': 'off'` to test file ESLint overrides
+---
 
-Read `references/test-patterns/_support-files.md` for the complete code of each file.
+## PASO 5: Crear archivos de soporte
 
-### STEP 4: Read the service code
+### .gitignore (agregar si no existen)
+```
+/coverage
+/reports
+```
 
-Before writing ANY test, read the actual source files. Understand:
-- Every public method and what it does
-- Validations, guards, error handling
-- ORM calls (Prisma or TypeORM) — read `references/test-patterns/_orm-mocks.md` for mock setup
-- Auth logic, token handling, password hashing
-- Middleware configuration (helmet, cors, rate limiting)
-- `main.ts` bootstrap function — needed to replicate setup in E2E tests
-- Actual route paths from controllers (`@Get`, `@Post`, `@Patch`, `@Delete` decorators)
-- Actual error messages thrown by the service (use those in test assertions)
-- Actual DTO field names and validation decorators
+### eslint.config.mjs (agregar override para archivos de test)
+```javascript
+// Dentro del array de configuracion, agregar:
+{
+  files: ['**/*.spec.ts', '**/*.e2e-spec.ts', 'test/**/*.ts'],
+  rules: {
+    '@typescript-eslint/no-unsafe-assignment': 'off',
+    '@typescript-eslint/no-unsafe-member-access': 'off',
+    '@typescript-eslint/no-unsafe-call': 'off',
+    '@typescript-eslint/no-unsafe-return': 'off',
+    '@typescript-eslint/no-unsafe-argument': 'off',
+    '@typescript-eslint/no-unused-vars': 'warn',
+    '@typescript-eslint/require-await': 'off',
+  },
+}
+```
 
-### STEP 5: Coverage analysis + Generate tests
+---
 
-#### 5a. Coverage Analysis
+## PASO 6: Generar tests
 
-Before generating any test, go through ALL 60 items in `references/goes-checklist.md` and classify each one:
+Para CADA servicio/controller del proyecto, crear un archivo `.security-html.spec.ts` siguiendo las reglas de este skill.
 
-- **COVERED** — The project implements this feature → generate a test
-- **NOT IMPLEMENTED** — The project does NOT implement this feature → flag it as a security gap
-- **NOT APPLICABLE** — The item does not apply to this project type (e.g., file upload items for a project that has no file upload)
+### Estructura obligatoria de cada test
 
-Examples:
-- R35 (Session Inactivity Timeout): if the project has no idle timeout logic → **NOT IMPLEMENTED** (security gap)
-- R57-R60 (File Upload): if the project has no file upload feature → **NOT APPLICABLE**
-- R26 (Disposable Email Rejection): if the project has no registration → **NOT APPLICABLE**
-- R42 (Cookie Security Flags): if the project does not use cookies → **NOT APPLICABLE**
+Hay dos patrones equivalentes. Usar el que resulte mas conveniente:
 
-**IMPORTANT:** Only generate tests for items classified as COVERED.
-Items classified as NOT IMPLEMENTED are security gaps — report them to the user as recommendations.
-Use `references/test-patterns/_recommendations.md` for the exact recommendation text for each item.
-Items classified as NOT APPLICABLE are skipped with justification.
-
-#### 5b. Generate tests
-
-For each COVERED item, create a `.security.spec.ts` file inside `test/security/`.
-Map every applicable item from the GOES Checklist (see `references/goes-checklist.md`).
-
-Read these reference files:
-1. `references/goes-checklist.md` — complete 60-item checklist with IDs, epics, features and severities
-2. `references/test-patterns/_setup.md` — basic spec file structure and adaptation rules
-3. `references/test-patterns/_severity-guide.md` — severity assignment and PENTEST rules
-4. `references/test-patterns/_orm-mocks.md` — Prisma and TypeORM mock setup
-5. `references/test-patterns/_support-files.md` — allure-setup.ts (with environment, executor, history), categories.json, Jest config templates
-6. `references/test-patterns/_e2e-setup.md` — E2E test setup for patterns that need a running app
-7. `references/test-patterns/_allure-customization.md` — OWASP links, HTML descriptions, ownership, labels, trend tracking
-8. `references/test-patterns/_recommendations.md` — Recommendation text for NOT IMPLEMENTED items
-9. ALL pattern files `references/test-patterns/01-*.md` through `21-*.md` — 100% coverage of all 60 GOES items
-
-#### Unit tests vs E2E tests
-
-Most patterns are **unit tests** (mock the ORM, test service logic). Some patterns require **E2E tests** (need a running app instance with supertest). See `_e2e-setup.md` for which patterns need E2E and how to set them up.
-
-- Unit test files: `test/security/<name>.security.spec.ts`
-- E2E test files: `test/security/<name>.e2e.spec.ts`
-
-#### Test structure (mandatory for every test)
+#### Patron A: report() directo (recomendado para tests nuevos)
 
 ```typescript
 import { Test, TestingModule } from '@nestjs/testing';
-import * as allure from 'allure-js-commons';
+import { report } from '@security-reporter/metadata';
 
-// Evidence helper — define ONCE per file
-async function attach(name: string, data: unknown) {
-  await allure.attachment(name, JSON.stringify(data, null, 2), {
-    contentType: 'application/json',
+describe('NombreDelServicio', () => {
+  // setup...
+
+  it('nombre descriptivo del test', async () => {
+    const t = report();
+
+    // 1. METADATA (obligatorio en cada test)
+    t.epic('Seguridad');
+    t.feature('Input Validation');
+    t.story('Rechazar payload con SQL injection');
+    t.severity('blocker');
+    t.tag('Pentest', 'OWASP A03', 'GOES Checklist R5');
+
+    // 2. PARAMETERS (inputs visibles en el reporte)
+    t.parameter('email', 'test@goes.gob.sv');
+    t.parameter('payload', "' OR 1=1 --");
+
+    // 3. STEPS (patron Preparar/Ejecutar/Verificar)
+    t.step('Preparar: crear payload malicioso');
+    const payload = { email: "' OR 1=1 --" };
+    t.evidence('Input (payload)', payload);
+
+    t.step('Ejecutar: enviar al servicio');
+    const result = await service.validate(payload);
+
+    t.step('Verificar: debe rechazar la inyeccion');
+    expect(result.valid).toBe(false);
+    t.evidence('Resultado (output)', result);
+
+    await t.flush();
   });
-}
-
-it('descriptive test name', async () => {
-  // 1. METADATA (all required)
-  await allure.epic('...');        // Area: Security | Authentication | Domain | Configuration | Audit | Infrastructure | Files
-  await allure.feature('...');     // Specific feature
-  await allure.story('...');       // Concrete scenario
-  await allure.severity('...');    // blocker | critical | normal | minor
-  await allure.owner('security-team');
-
-  // 2. TAGS — traceability
-  await allure.tag('...');         // Category: Pentest, CRUD, Auth, Config
-  await allure.tag('...');         // OWASP: OWASP A07
-  await allure.tag('...');         // GOES: GOES Checklist R27
-
-  // 3. LABELS — report grouping
-  await allure.label('compliance', 'GOES');
-  await allure.label('layer', 'api');
-  await allure.suite('Security Tests');
-  await allure.parentSuite('GOES Compliance');
-
-  // 4. LINKS — clickable OWASP references (see _allure-customization.md for URL list)
-  await allure.link('https://owasp.org/Top10/A07_2021-.../', 'OWASP A07:2021');
-
-  // 5. DESCRIPTION — rich HTML with traceability table (see _allure-customization.md)
-  await allure.descriptionHtml('...');
-
-  // 6. PARAMETERS (visible inputs)
-  await allure.parameter('key', 'value');
-
-  // 7. STEPS (Prepare → Execute → Verify)
-  await allure.step('Prepare: ...', async () => { /* mocks */ });
-  await attach('Input payload (input)', data);
-  const result = await allure.step('Execute: ...', async () => { return service.method(); });
-  await allure.step('Verify: ...', async () => { expect(result).toBe(...); });
-  await attach('Result (output)', result);
 });
 ```
 
-#### Rules for PENTEST tests
+#### Patron B: AllureCompat (migracion desde Allure existente)
 
-- Prefix: `'PENTEST: ...'` in the it() name
-- Epic: `'Security'`
-- Tags: `'Pentest'` + `'OWASP Axx'` + `'GOES Checklist Rxx'`
-- Description: must include `## Vulnerability Prevented` and `## Defense Implemented`
-- Attachments: attacker payload (input) + defense response (output)
+Para migrar tests que ya usaban `allure-js-commons`, se puede usar `AllureCompat` que espeja la misma API:
 
-### STEP 6: Run tests and generate Allure Report
+```typescript
+import { AllureCompat } from '@security-reporter/metadata';
 
-After generating all test files, you MUST run the tests and generate the report automatically. Do NOT leave this as a manual step for the user.
+it('nombre del test', async () => {
+  const allure = new AllureCompat();
 
-1. Run the security tests:
-   ```bash
-   npm run test:security
-   ```
+  allure.epic('Seguridad');
+  allure.feature('Input Validation');
+  allure.severity('blocker');
+  allure.tag('Pentest', 'OWASP A03');
+  allure.parameter('key', 'value');
 
-2. If any tests fail due to import, config, or ESLint errors (especially `require-await`), fix them and re-run.
+  const result = allure.step('Ejecutar accion', () => {
+    return someFunction();
+  });
 
-3. Generate the Allure report:
-   ```bash
-   npx allure generate allure-results --clean -o allure-report
-   ```
+  await allure.attachment('Resultado', JSON.stringify(result), {
+    contentType: 'application/json',
+  });
 
-4. Open the Allure report in the browser:
-   ```bash
-   npx allure open allure-report
-   ```
-
-5. Show the **Security Coverage Report** to the user in this exact format:
-
-```
-═══════════════════════════════════════════════════════════
-  GOES SECURITY COVERAGE REPORT
-═══════════════════════════════════════════════════════════
-
-  Tests:     XX passed | XX failed | XX total
-  Files:     XX spec files generated
-
-  ✅ COVERED (XX items) — Tests generated
-  ─────────────────────────────────────────
-  R5  - XSS Prevention                    [OWASP A03]
-  R15 - Password Hashing                  [OWASP A02]
-  R23 - IDOR Prevention                   [OWASP A01]
-  R27 - Brute Force Protection            [OWASP A07]
-  ... (list all covered items)
-
-  ⚠️  NOT IMPLEMENTED (XX items) — Security gaps found
-  ─────────────────────────────────────────
-  R35 - Session Inactivity Timeout        [OWASP A07]
-        → Recommendation: Add idle timeout (15-30 min)
-          that clears the session and redirects to login.
-  R26 - Disposable Email Rejection        [OWASP A07]
-        → Recommendation: Add email domain validation
-          against a blocklist of disposable providers.
-  ... (list all NOT IMPLEMENTED items with recommendations)
-
-  ⬚  NOT APPLICABLE (XX items) — Skipped
-  ─────────────────────────────────────────
-  R57 - File Extension Validation         (no file upload)
-  R58 - File Extension Whitelist          (no file upload)
-  R59 - File Size Limit                   (no file upload)
-  R60 - File UUID Rename                  (no file upload)
-  ... (list all N/A items with reason)
-
-  COVERAGE: XX/60 items tested | XX/60 gaps | XX/60 N/A
-═══════════════════════════════════════════════════════════
+  expect(result).toBeDefined();
+  await allure.flush();
+});
 ```
 
-**Important:**
-- Steps 1-4 are mandatory and automatic. The user should see the Allure report open in their browser without running any commands manually.
-- The coverage report MUST always be shown — it is the most valuable output for the team.
-- NOT IMPLEMENTED items are the most important part — each one must include a concrete, actionable recommendation for the developer to fix the gap.
+### Reglas de metadata
 
-## Important Rules
+| Campo | Regla |
+|-------|-------|
+| `epic` | Area del sistema: Seguridad, Autenticacion, Dominio, Configuracion, Auditoria, Infraestructura, Archivos |
+| `feature` | Funcionalidad especifica: Timing Attack Prevention, RBAC, Input Validation, etc. |
+| `story` | Escenario concreto que se prueba |
+| `severity` | blocker = sistema no opera / critical = funcionalidad comprometida / normal = estandar / minor = edge case |
+| `tag` | SIEMPRE incluir: tag de categoria (Pentest, CRUD, Auth, Config) + tag de normativa (OWASP Axx, GOES Checklist Rxx) |
+| `parameter` | Inputs clave del test: payloads, emails, tokens, configuraciones |
+| `step` | Pasos descriptivos del test en formato Preparar/Ejecutar/Verificar |
+| `evidence` | Objetos JSON con datos de entrada/salida que se muestran con syntax highlighting en el reporte |
 
-- ALL code, comments, variable names, and strings MUST be in English
-- NEVER generate empty or placeholder tests — every test must have real assertions against real code
-- Read the actual service code BEFORE writing tests
-- All test files go in `test/security/` with the naming convention `<name>.security.spec.ts`
-- If a `.security.spec.ts` file already exists, READ IT FIRST. Compare existing tests against the GOES checklist and ONLY add tests that are missing. Never duplicate existing tests.
-- Respect the project's tsconfig.json — if `ignoreDeprecations` is `"5.0"`, do NOT change it
-- Each test must be independent — no shared state, no execution order dependency
-- Use ORM mocks (Prisma, TypeORM, etc.) — never connect to a real DB in unit tests
-- No Java required — the `allure` npm package (v3+) is pure JavaScript
-- For E2E tests, replicate the exact main.ts setup (helmet, CORS, pipes, guards, prefix)
-- Detect the project's ORM from package.json and use the correct mock pattern from `_orm-mocks.md`
-- All patterns are reference examples — adapt endpoints, method names, DTOs, and error messages to the actual code
+### Regla para tests de PENTEST
 
-## Recommended Prompts
+- Prefijo "PENTEST:" en el nombre del it()
+- Epic: 'Seguridad'
+- Tag: 'Pentest' + referencia OWASP
+- Steps con ## Vulnerabilidad que previene y ## Defensa implementada
+- Evidence con payload del atacante (input) y respuesta de defensa (output)
 
-These prompts are optimized to trigger the skill correctly. The user can copy-paste any of them:
+### Regla critica: flush()
 
-```
-Generate security tests for all services using the goes-security-test skill.
-Cover all GOES checklist items with OWASP traceability and Allure Report.
-```
+Cada test DEBE llamar `await t.flush()` (o `await allure.flush()`) al final. Sin flush, la metadata no se escribe y el reporte no tendra los detalles del test.
 
-```
-Generate security tests for the AuthService.
-Use the goes-security-test skill and cover all applicable GOES checklist items.
-```
+---
 
-```
-Generate security tests for the guards and middleware.
-Include E2E tests for security headers and HTTP methods.
-```
+## CHECKLIST COMPLETO DE CIBERSEGURIDAD GOES
 
-```
-Run all security tests and open the Allure report.
-```
+Este es el checklist oficial. Cada item DEBE tener al menos 1 test que lo cubra.
+El tag de trazabilidad es `GOES Checklist Rxx` donde xx es el numero de fila.
+
+### CATEGORIA 1: Contenido Web
+
+| ID | Tarea | Epic | Feature sugerida | Severity |
+|----|-------|------|------------------|----------|
+| R3 | No dejar contenido sensible (llaves, IDs, info personal) en archivos del proyecto | Seguridad | Sensitive Data Exposure | critical |
+| R4 | No exponer JS sensible o logica de negocio | Seguridad | Business Logic Exposure | critical |
+| R5 | Sanitizar entrada de datos (probar inyeccion de scripts) | Seguridad | XSS Prevention / Input Sanitization | blocker |
+| R6 | Si el sitio es publico, configurar Robot.txt y sitemap.xml | Configuracion | Public Site Config | minor |
+
+### CATEGORIA 2: Entrada y salida de datos por el servidor
+
+| ID | Tarea | Epic | Feature sugerida | Severity |
+|----|-------|------|------------------|----------|
+| R8 | Mensajes 2xx, 4xx, 5xx genericos (no exponer detalles internos) | Seguridad | Generic Error Messages | critical |
+| R9 | Validacion por rol o permiso dentro del servidor | Autenticacion | RBAC Enforcement | blocker |
+| R10 | Eliminar todo log visible por el usuario | Seguridad | Log Exposure Prevention | critical |
+| R11 | Validacion de tipo de datos via DTO, longitud de campo, cantidad maxima de registros | Dominio | DTO Validation / Input Constraints | critical |
+
+### CATEGORIA 3: Autenticacion, registro y acciones de usuarios
+
+| ID | Tarea | Epic | Feature sugerida | Severity |
+|----|-------|------|------------------|----------|
+| R13 | Tiempo de vida bajo para access token (5 min) y refresh token | Seguridad | Token Lifetime Enforcement | critical |
+| R14 | Auth failures: MFA, rate limit, session management | Seguridad | Auth Failure Handling | blocker |
+| R15 | Encriptacion bcrypt, Argon2 o PBKDF2 en hashing | Seguridad | Password Hashing Strength | blocker |
+| R16 | Uso de algoritmo RS256 para firma de tokens | Seguridad | JWT Signing Algorithm | blocker |
+| R17 | Session ID minimo 128 bits de entropia | Seguridad | Session ID Entropy | critical |
+| R18 | Session ID regenerado post-login | Seguridad | Session Fixation Prevention | critical |
+| R19 | Validar signature, exp, iat, iss, aud en cada request | Seguridad | JWT Claims Validation | blocker |
+| R20 | NO almacenar datos sensibles en el payload del JWT | Seguridad | JWT Payload Security | critical |
+| R21 | Bloquear navegacion forzada a rutas no autorizadas | Autenticacion | Forced Browsing Prevention | critical |
+| R22 | 404 para cualquier ruta que no coincida con las definidas | Configuracion | Unknown Route Handling | normal |
+| R23 | Proteccion contra IDOR | Seguridad | IDOR Prevention | blocker |
+| R24 | Usuarios con bajo privilegio no acceden a acciones de alto privilegio | Autenticacion | Privilege Escalation Prevention | blocker |
+| R25 | Mismo usuario no puede registrarse repetidamente | Autenticacion | Duplicate Registration Prevention | critical |
+| R26 | No aceptar disposable emails | Autenticacion | Disposable Email Rejection | normal |
+| R27 | Bloquear cuenta tras 3-5 intentos fallidos | Seguridad | Brute Force Protection | blocker |
+| R28 | Metodo de recuperacion de cuenta | Autenticacion | Account Recovery | critical |
+| R29 | Si hay "recuerdame", la contrasena debe estar encriptada | Seguridad | Remember Me Security | critical |
+| R30 | Almacenamiento de contrasena del lado del servidor | Seguridad | Server-side Password Storage | blocker |
+| R31 | No permitir usar el username como password | Seguridad | Weak Password Prevention | critical |
+| R32 | Renovar refresh token despues de cada uso (rotacion) | Seguridad | Token Rotation | blocker |
+| R33 | Validar token en cada peticion privada | Autenticacion | Token Validation Per Request | blocker |
+| R34 | Implementar RBAC | Autenticacion | Role-Based Access Control | blocker |
+| R35 | Sistema de inactividad (timeout de sesion) | Seguridad | Session Inactivity Timeout | critical |
+
+### CATEGORIA 4: Configuracion
+
+| ID | Tarea | Epic | Feature sugerida | Severity |
+|----|-------|------|------------------|----------|
+| R37 | Implementar ORM (no queries raw) | Seguridad | ORM Usage / SQL Injection Prevention | blocker |
+| R38 | CORS: Access-Control-Allow-Origin solo origenes permitidos | Configuracion | CORS Origin Restriction | critical |
+| R39 | CORS: Access-Control-Allow-Methods solo metodos permitidos | Configuracion | CORS Methods Restriction | critical |
+| R40 | Access-Control-Allow-Credentials: true solo si necesario | Configuracion | CORS Credentials Policy | normal |
+| R41 | Access-Control-Max-Age: 3600 | Configuracion | CORS Preflight Cache | normal |
+| R42 | Cookies con HttpOnly, Secure, SameSite | Seguridad | Cookie Security Flags | blocker |
+| R43 | Debug mode deshabilitado | Configuracion | Debug Mode Disabled | critical |
+| R44 | Content-Security-Policy configurado | Configuracion | CSP Header | critical |
+| R45 | X-Content-Type-Options nosniff, X-Frame-Options DENY | Configuracion | Security Headers (XCT, XFO) | critical |
+| R46 | Strict-Transport-Security (HSTS) | Configuracion | HSTS Header | critical |
+| R47 | X-XSS-Protection 0 (deprecado, usar CSP) | Configuracion | XSS Protection Header | normal |
+| R48 | Referrer-Policy strict-origin-when-cross-origin | Configuracion | Referrer Policy Header | normal |
+| R49 | Permissions-Policy geolocation=(), camera=(), microphone=() | Configuracion | Permissions Policy Header | normal |
+| R50 | Cache-Control no-store para respuestas sensibles | Configuracion | Cache Control Header | critical |
+| R51 | Cookie max-age = refresh token duration | Configuracion | Cookie Lifetime Alignment | critical |
+| R52 | Deshabilitar metodo PUT | Configuracion | HTTP PUT Disabled | normal |
+| R53 | Deshabilitar metodo TRACE | Configuracion | HTTP TRACE Disabled | critical |
+| R54 | Deshabilitar http override | Configuracion | HTTP Override Disabled | critical |
+| R55 | Rate limit: 100 req/min normal, 5 req/min login | Seguridad | Rate Limiting | blocker |
+
+### CATEGORIA 5: Manejo de archivos
+
+| ID | Tarea | Epic | Feature sugerida | Severity |
+|----|-------|------|------------------|----------|
+| R57 | Validar extension de archivo y magic byte | Archivos | File Extension + Magic Byte Validation | blocker |
+| R58 | Whitelist de extensiones permitidas | Archivos | File Extension Whitelist | blocker |
+| R59 | Limitar tamano de archivo | Archivos | File Size Limit | critical |
+| R60 | Renombrar archivos con UUID | Archivos | File UUID Rename | critical |
+
+---
+
+## OWASP TOP 10 — Tests requeridos
+
+Cada item debe tener al menos 1 test con tag `OWASP Axx`.
+
+| ID | Vulnerabilidad | Tests a generar | Tag |
+|----|---------------|-----------------|-----|
+| A01 | Broken Access Control | IDOR, Privilege Escalation, Forced Browsing, Missing Auth | OWASP A01 |
+| A02 | Cryptographic Failures | Weak Hashing, Sensitive Data in JWT, Missing TLS | OWASP A02 |
+| A03 | Injection | SQL Injection (ORM bypass), XSS, Command Injection | OWASP A03 |
+| A04 | Insecure Design | Business Logic Flaws, Missing Rate Limit | OWASP A04 |
+| A05 | Security Misconfiguration | Debug Mode, Default Creds, Missing Headers, CORS | OWASP A05 |
+| A06 | Vulnerable Components | (SCA - fuera del scope de unit tests) | OWASP A06 |
+| A07 | Auth Failures | Brute Force, Timing Attack, Weak Password, Token Replay | OWASP A07 |
+| A08 | Data Integrity Failures | (CI/CD - fuera del scope de unit tests) | OWASP A08 |
+| A09 | Logging Failures | Missing Audit Log, Sensitive Data in Logs | OWASP A09 |
+| A10 | SSRF | URL Validation, Whitelist Enforcement | OWASP A10 |
+
+---
+
+## OWASP API SECURITY TOP 10 — Tests requeridos
+
+| ID | Vulnerabilidad | Tests a generar | Tag |
+|----|---------------|-----------------|-----|
+| API1 | Broken Object Level Auth | Acceder a recurso de otro usuario por ID | OWASP API1 |
+| API2 | Broken Authentication | Rate limit en login, MFA bypass | OWASP API2 |
+| API3 | Broken Object Property Auth | No exponer propiedades sensibles, DTOs por rol | OWASP API3 |
+| API4 | Unrestricted Resource Consumption | Rate limit, pagination limit, payload max | OWASP API4 |
+| API5 | Broken Function Level Auth | Admin endpoint accedido por user normal | OWASP API5 |
+| API8 | Security Misconfiguration | Headers, CORS, metodos HTTP | OWASP API8 |
+
+---
+
+## GUIA GOES — Secciones de referencia
+
+Estas son las secciones de la Guia de Desarrollo Seguro GOES que deben mapearse a tests:
+
+### Seccion 3: Validacion de Entrada
+- Validar en el servidor (nunca confiar en el cliente)
+- Whitelist sobre Blacklist
+- Sanitizar y Escapar
+- Validar tipo, longitud, formato y rango
+- Canonicalizar antes de validar (UTF-8)
+
+### Seccion 4: Autenticacion y Autorizacion
+- 4.1 Politicas de Contrasenas: minimo 12 chars, verificar contra listas comprometidas, bcrypt/Argon2/PBKDF2
+- 4.2 Gestion de Sesiones: 128 bits entropia, regenerar post-login, HttpOnly/Secure/SameSite, timeout inactividad 15-30 min
+- 4.3 JWT Best Practices: RS256, validar signature/exp/iat/iss/aud, access token 15 min max, refresh en httpOnly cookie, rotacion por uso, NO datos sensibles en payload
+- 4.4 Control de Acceso RBAC/ABAC: denegar por defecto, validar en CADA endpoint, no confiar en IDs de URL, least privilege, log accesos denegados
+
+### Seccion 5: Criptografia
+- Hashing passwords: Argon2id, bcrypt, PBKDF2 (NUNCA MD5, SHA1, SHA256 solo)
+- TLS 1.2 minimo, ideal 1.3
+- NO hardcodear secretos en codigo fuente, usar vault
+
+### Seccion 6: Seguridad en APIs
+- OWASP API Security Top 10 (ver tabla arriba)
+- Rate Limiting: 5 intentos/min login, 100-1000 req/min APIs, responder 429 + Retry-After
+
+### Seccion 7: Seguridad en Base de Datos
+- SIEMPRE queries parametrizadas / ORM
+- NUNCA concatenar strings en queries
+- Principio de menor privilegio en BD
+
+### Seccion 8: Headers de Seguridad HTTP
+- Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'
+- X-Content-Type-Options: nosniff
+- X-Frame-Options: DENY (o SAMEORIGIN)
+- Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+- X-XSS-Protection: 0 (deprecado, usar CSP)
+- Referrer-Policy: strict-origin-when-cross-origin
+- Permissions-Policy: geolocation=(), camera=(), microphone=()
+- Cache-Control: no-store (para respuestas sensibles)
+- CORS: origenes especificos, solo metodos necesarios, credentials solo si necesario, max-age 3600
+
+### Seccion 9: Manejo de Errores y Logging
+- 9.1 Errores Seguros: mensajes genericos al usuario, NUNCA exponer stack traces/queries/rutas/versiones
+- 9.2 Que Loguear: intentos login con IP/timestamp, cambios password, acceso denegado (403), operaciones admin, errores validacion, creacion/eliminacion recursos sensibles
+- 9.3 Que NO Loguear: contrasenas, tokens, API keys, tarjetas, datos personales sensibles, secretos
+
+### Seccion 10: Upload de Archivos
+- Validar extension Y magic bytes
+- Whitelist de extensiones (.pdf, .jpg, .png)
+- Limitar tamano maximo (ej: 10MB)
+- Renombrar con UUID
+- Almacenar fuera del webroot o en storage externo (S3)
+- NO ejecutar archivos subidos
+
+---
+
+## PASO 7: Verificacion
+
+Despues de generar todos los archivos:
+
+1. Ejecutar `npm run test:security:html` para verificar que todos los tests pasan y el reporte se genera
+2. Si hay errores de ESLint, corregirlos (especialmente require-await en archivos de test)
+3. Verificar que `reports/security/security-report.html` se genero correctamente
+4. Mostrar resumen: cuantos tests generados, cuantos items del checklist cubiertos, cuantos OWASP cubiertos
+
+---
+
+## NOTAS IMPORTANTES PARA LA IA
+
+1. **NUNCA generar tests vacios o placeholder** — cada test debe tener assertions reales contra el codigo del proyecto.
+2. **Analizar el codigo real del servicio** antes de escribir tests. Leer el archivo .service.ts o .controller.ts y entender los metodos, validaciones y logica.
+3. **Si un item del checklist no aplica** al servicio actual (ej: el servicio no maneja archivos, no generar tests de R57-R60), documentar en un comentario que items se omitieron y por que.
+4. **Priorizar tests de seguridad** sobre tests funcionales. Cada servicio debe tener al minimo:
+   - Tests funcionales (CRUD/logica) con epic 'Dominio'
+   - Tests de validacion de entrada con epic 'Seguridad'
+   - Tests de autorizacion si aplica con epic 'Autenticacion'
+5. **Los comentarios en el codigo van SIN tildes** (ASCII puro). Los strings de metadata (descriptions, steps, stories) SI llevan tildes.
+6. **Respetar el tsconfig.json del proyecto.** Si `ignoreDeprecations` esta en "5.0", NO cambiarlo a "6.0".
+7. **Cada test debe ser independiente** — no depender del orden de ejecucion ni de estado compartido.
+8. **Usar mocks del ORM** (Prisma, TypeORM, etc.) — no conectar a BD real en unit tests.
+9. **Cada test DEBE terminar con `await t.flush()`** — sin esto la metadata no llega al reporte.
+10. **NO instalar Allure, allure-commandline ni Java** — este sistema usa un reporter custom puro Node.js que genera HTML directamente.
+11. **El reporter html-reporter.js DEBE ser JavaScript puro** — Jest carga reporters con `require()`, no pasa por ts-jest. Si necesitas modificarlo, no lo conviertas a TypeScript.
+12. **Los archivos de spec deben terminar en `.security-html.spec.ts`** — este es el patron que el jest config busca.

@@ -4,6 +4,7 @@
 
 ```typescript
 it('PENTEST: should use ORM for all queries (no raw SQL concatenation)', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('ORM Usage / SQL Injection Prevention');
   await allure.story('All database queries use parameterized ORM methods');
@@ -51,14 +52,17 @@ it('PENTEST: should use ORM for all queries (no raw SQL concatenation)', async (
     });
   }
 
-  await attach('SQL injection payloads tested (input)', { payloads: sqlInjectionPayloads });
-  await attach('Defense result (output)', {
+  await allure.attachment('SQL injection payloads tested (input)', JSON.stringify({ payloads: sqlInjectionPayloads }, null, 2), { contentType: 'application/json' });
+  await allure.attachment('Defense result (output)', JSON.stringify({
     allPayloadsParameterized: true,
     noRawSQLUsed: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('PENTEST: should prevent NoSQL injection in query parameters', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('ORM Usage / SQL Injection Prevention');
   await allure.story('Reject NoSQL injection operators in query params');
@@ -88,9 +92,11 @@ it('PENTEST: should prevent NoSQL injection in query parameters', async () => {
     });
   }
 
-  await attach('NoSQL injection payloads (output)', {
+  await allure.attachment('NoSQL injection payloads (output)', JSON.stringify({
     total: noSqlPayloads.length,
     allRejected: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

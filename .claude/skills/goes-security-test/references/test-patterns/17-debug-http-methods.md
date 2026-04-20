@@ -4,6 +4,7 @@
 
 ```typescript
 it('should have debug mode disabled in production', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('Debug Mode Disabled');
   await allure.story('No debug endpoints or stack traces in production');
@@ -39,13 +40,16 @@ it('should have debug mode disabled in production', async () => {
     expect(JSON.stringify(response.body)).not.toContain('.ts:');
   });
 
-  await attach('Debug mode check (output)', {
+  await allure.attachment('Debug mode check (output)', JSON.stringify({
     debugDisabled: true,
     noStackTraces: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('PENTEST: should disable HTTP TRACE method', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('HTTP TRACE Disabled');
   await allure.story('HTTP TRACE method must be disabled to prevent XST attacks');
@@ -68,10 +72,13 @@ it('PENTEST: should disable HTTP TRACE method', async () => {
     expect(response.status).not.toBe(200);
   });
 
-  await attach('TRACE test (output)', { traceDisabled: true });
+  await allure.attachment('TRACE test (output)', JSON.stringify({ traceDisabled: true }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should disable HTTP PUT method if not used', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('HTTP PUT Disabled');
   await allure.story('Unused HTTP methods should be disabled');
@@ -92,10 +99,13 @@ it('should disable HTTP PUT method if not used', async () => {
     }
   });
 
-  await attach('HTTP PUT test (output)', { putDisabled: true });
+  await allure.attachment('HTTP PUT test (output)', JSON.stringify({ putDisabled: true }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('PENTEST: should disable HTTP method override', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Configuration');
   await allure.feature('HTTP Override Disabled');
   await allure.story('X-HTTP-Method-Override header must be ignored');
@@ -129,6 +139,8 @@ it('PENTEST: should disable HTTP method override', async () => {
     expect(response.status).not.toBe(404);
   });
 
-  await attach('Method override test (output)', { overrideDisabled: true });
+  await allure.attachment('Method override test (output)', JSON.stringify({ overrideDisabled: true }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```

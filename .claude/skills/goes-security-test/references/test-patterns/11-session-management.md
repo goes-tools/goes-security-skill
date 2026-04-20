@@ -4,6 +4,7 @@
 
 ```typescript
 it('should generate session IDs with sufficient entropy', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Session ID Entropy');
   await allure.story('Session IDs must have at least 128 bits of entropy via CSPRNG');
@@ -37,13 +38,16 @@ it('should generate session IDs with sufficient entropy', async () => {
     expect(uniqueIds.size).toBe(sessions.length);
   });
 
-  await attach('Session entropy result (output)', {
+  await allure.attachment('Session entropy result (output)', JSON.stringify({
     minimumBits: 128,
     generatedWithCSPRNG: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('PENTEST: should regenerate session after login (prevent session fixation)', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Session Fixation Prevention');
   await allure.story('Session ID must change after successful authentication');
@@ -78,14 +82,17 @@ it('PENTEST: should regenerate session after login (prevent session fixation)', 
     expect(postLoginToken).toBeDefined();
   });
 
-  await attach('Session fixation prevention (output)', {
+  await allure.attachment('Session fixation prevention (output)', JSON.stringify({
     preLoginSession: 'pre-login-session-id',
     postLoginSession: 'new-session-generated',
     sessionChanged: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 
 it('should expire session after inactivity timeout', async () => {
+  const allure = new AllureCompat();
   await allure.epic('Security');
   await allure.feature('Session Inactivity Timeout');
   await allure.story('Redirect to login after idle period');
@@ -116,9 +123,11 @@ it('should expire session after inactivity timeout', async () => {
     await expect(guard.canActivate(mockContext)).rejects.toThrow();
   });
 
-  await attach('Session timeout result (output)', {
+  await allure.attachment('Session timeout result (output)', JSON.stringify({
     tokenExpired: true,
     accessDenied: true,
-  });
+  }, null, 2), { contentType: 'application/json' });
+
+  await allure.flush();
 });
 ```
