@@ -1,104 +1,141 @@
 # goes-security-skill
 
-Skill de Claude para generar tests de seguridad automatizados con **Allure Report** en proyectos **NestJS + Jest**.
+Claude skill for generating automated security tests with **Allure Report** for **NestJS + Jest** projects.
 
-Cubre el **Checklist de Ciberseguridad GOES** (60 items), **OWASP Top 10** y **OWASP API Security Top 10**.
+Covers the **GOES Cybersecurity Checklist** (60 items), **OWASP Top 10**, and **OWASP API Security Top 10**.
 
 ---
 
-## Instalacion
+## Installation
 
-### 1. Clonar este repo
+### 1. Clone this repo
 
 ```bash
 git clone https://github.com/goes-tools/goes-security-skill.git
 ```
 
-### 2. Copiar la carpeta `.claude/` a tu proyecto NestJS
+### 2. Copy the `.claude/` folder to your NestJS project
 
 ```bash
-cp -r goes-security-skill/.claude/ /ruta/a/tu-proyecto/.claude/
+cp -r goes-security-skill/.claude/ /path/to/your-project/.claude/
 ```
 
-Tu proyecto queda asi:
+Your project structure will look like:
 
 ```
-tu-proyecto-nestjs/
+your-nestjs-project/
   .claude/
     skills/
       goes-security-test/
-        SKILL.md                    <-- instrucciones para Claude
+        SKILL.md                          <-- instructions for Claude
         references/
-          goes-checklist.md         <-- 60 items del checklist GOES
-          test-patterns.md          <-- 7 patrones de codigo
+          goes-checklist.md               <-- 60 items GOES checklist
+          test-patterns/                  <-- 21 code patterns (100% coverage)
+            _setup.md
+            _severity-guide.md
+            01-crud-validation.md
+            02-xss-input-sanitization.md
+            ...
+            21-audit-log.md
   src/
   package.json
   ...
 ```
 
-### 3. Abrir Claude en tu proyecto
+### 3. Open Claude in your project
 
-Abrir **Claude Code** o **Claude Cowork** en la carpeta del proyecto.
+Open **Claude Code** or **Claude Cowork** in your project folder.
 
-### 4. Pedirle a Claude que genere los tests
+### 4. Ask Claude to generate the tests
+
+Copy and paste any of these prompts:
 
 ```
-> Genera los tests de seguridad del servicio AuthService
+Generate security tests for all services using the goes-security-test skill.
+Cover all GOES checklist items with OWASP traceability and Allure Report.
 ```
 
-Claude lee el skill, analiza el codigo real del servicio, instala las dependencias necesarias, y genera los tests automaticamente.
+```
+Generate security tests for the AuthService.
+Use the goes-security-test skill and cover all applicable GOES checklist items.
+```
+
+```
+Generate security tests for the guards and middleware.
+Include E2E tests for security headers and HTTP methods.
+```
+
+Claude reads the skill, analyzes your actual code, installs dependencies, generates the tests, runs them, and opens the Allure report automatically.
 
 ---
 
-## Que hace Claude cuando activas el skill
+## What Claude does
 
-1. Analiza los servicios y controllers del proyecto
-2. Instala dependencias si faltan (`allure-jest`, `allure-js-commons`, `allure-commandline`)
-3. Configura Jest para generar reportes Allure
-4. Genera archivos `.spec.ts` completos con:
-   - Metadata Allure (epic, feature, story, severity, tags)
-   - Trazabilidad triple: `GOES Checklist Rxx` + `OWASP Axx` + `OWASP APIxx`
-   - Steps visibles (Preparar / Ejecutar / Verificar)
-   - Attachments JSON (payload del atacante + respuesta de defensa)
-   - Descriptions Markdown (vulnerabilidad + defensa implementada)
+When you activate the skill, Claude:
+
+1. Analyzes your services, controllers, guards, and middleware
+2. Installs dependencies if missing (`allure-jest`, `allure-js-commons`, `allure`) — no Java required
+3. Configures Jest to generate Allure reports
+4. Creates `test/security/` folder with `.security.spec.ts` files containing:
+   - Allure metadata (epic, feature, story, severity, tags)
+   - Triple traceability: `GOES Checklist Rxx` + `OWASP Axx` + `OWASP APIxx`
+   - Visible steps (Prepare / Execute / Verify)
+   - JSON attachments (attacker payload + defense response)
+   - Markdown descriptions (vulnerability + defense)
+5. Runs all security tests automatically
+6. Generates and opens the Allure report in your browser
+
+### Generated test structure
+
+```
+test/
+  security/
+    auth-service.security.spec.ts
+    users-service.security.spec.ts
+    roles-guard.security.spec.ts
+    helmet-middleware.security.spec.ts
+    ...
+  allure-setup.ts
+```
 
 ---
 
-## Ejemplos de uso
+## Usage examples
 
 ```
-> Genera los tests de seguridad del servicio AuthService
-> Genera los tests de seguridad del servicio UsersService
-> Genera los tests de seguridad de todos los servicios
+> Generate security tests for the AuthService
+> Generate security tests for the UsersService
+> Generate security tests for all services
+> Generate security tests for the guards and middleware
 ```
 
-### Ver el reporte interactivo
+### View the interactive report
+
+After Claude runs the tests, the report opens automatically. To re-open it later:
 
 ```bash
-npm test
-npx allure generate allure-results --clean -o allure-report
-npx allure open allure-report
+npm run test:allure
 ```
 
-### Filtrar en Allure Report
+### Filter in Allure Report
 
-- **Epic**: Seguridad, Autenticacion, Dominio, Configuracion, Auditoria, Archivos
+- **Epic**: Security, Authentication, Domain, Configuration, Audit, Files
 - **Tag**: `Pentest`, `OWASP A07`, `GOES Checklist R27`, `CRUD`, `Auth`, `Config`
 - **Severity**: blocker, critical, normal, minor
 
 ---
 
-## Cobertura
+## Coverage
 
-### Checklist de Ciberseguridad GOES (60 items)
+### GOES Cybersecurity Checklist (60 items)
 
-| Categoria | Items | Que cubre |
-|-----------|-------|-----------|
-| Contenido Web | R3-R6 | Datos sensibles, XSS, sanitizacion |
-| Entrada/Salida del servidor | R8-R11 | Errores genericos, RBAC, DTO validation |
-| Autenticacion y sesiones | R13-R35 | JWT, bcrypt, RS256, brute force, IDOR, token rotation, RBAC |
-| Configuracion | R37-R55 | CORS, headers HTTP, cookies, rate limit, ORM |
-| Manejo de archivos | R57-R60 | Magic bytes, whitelist, tamano, UUID |
+| Category | Items | Covers |
+|----------|-------|--------|
+| Web Content | R3-R6 | Sensitive data, XSS, sanitization |
+| Server Input/Output | R8-R11 | Generic errors, RBAC, DTO validation |
+| Auth & Sessions | R13-R35 | JWT, bcrypt, RS256, brute force, IDOR, token rotation, RBAC |
+| Configuration | R37-R55 | CORS, HTTP headers, cookies, rate limit, ORM |
+| File Handling | R57-R60 | Magic bytes, whitelist, size limit, UUID rename |
 
 ### OWASP Top 10
 
@@ -108,53 +145,58 @@ A01 (Broken Access Control), A02 (Crypto Failures), A03 (Injection), A05 (Securi
 
 API1 (Object Level Auth), API2 (Broken Auth), API3 (Property Auth), API4 (Resource Consumption), API5 (Function Level Auth), API8 (Security Misconfiguration)
 
+### Test Patterns — 21 patterns, 100% checklist coverage
+
+1. CRUD + DTO Validation (R11)
+2. XSS / Input Sanitization (R3, R4, R5)
+3. Error Handling (R6, R8, R22)
+4. JWT Security (R13, R16, R19, R20)
+5. Password Security (R15, R29, R30, R31)
+6. Brute Force Protection (R27)
+7. Timing Attack Prevention (R14)
+8. Replay Attack Detection (R32)
+9. RBAC / Privilege Escalation (R9, R24, R34)
+10. IDOR Prevention (R23)
+11. Session Management (R17, R18, R35)
+12. Forced Browsing / Token Per Request (R21, R33)
+13. Registration Security (R25, R26, R28)
+14. CORS Configuration (R38, R39, R40, R41)
+15. Cookie Security (R42, R51)
+16. HTTP Security Headers (R44-R50)
+17. Debug Mode & HTTP Methods (R43, R52, R53, R54)
+18. SQL Injection / ORM (R37)
+19. Rate Limiting (R55)
+20. File Upload Security (R57, R58, R59, R60)
+21. Audit Log (R10)
+
 ---
 
-## Requisitos
+## Requirements
 
-- **Proyecto NestJS** con Jest configurado
+- **NestJS** project with Jest configured
 - **Node.js 18+**
-- **Java** (para Allure CLI):
-  - macOS: `brew install openjdk`
-  - Linux: `sudo apt install default-jdk`
-  - Windows: descargar de [adoptium.net](https://adoptium.net/)
+- **No Java required** — uses the pure JavaScript `allure` package (v3+)
 
 ---
 
-## Estructura del repo
+## Contributing
 
-```
-goes-security-skill/
-  .claude/
-    skills/
-      goes-security-test/
-        SKILL.md                 <-- instrucciones para Claude
-        references/
-          goes-checklist.md      <-- checklist completo (60 items)
-          test-patterns.md       <-- 7 patrones de codigo
-  README.md
-```
+PRs are welcome for:
 
----
+- Adding new test patterns in `references/test-patterns/`
+- Updating the checklist in `references/goes-checklist.md`
+- Improving skill instructions in `SKILL.md`
+- Adding support for other frameworks (Express, Fastify, etc.)
 
-## Contribuir
+### How to contribute
 
-Se aceptan PRs para:
-
-- Agregar nuevos patrones de test en `references/test-patterns.md`
-- Actualizar el checklist si cambia la normativa GOES en `references/goes-checklist.md`
-- Mejorar las instrucciones del skill en `SKILL.md`
-- Agregar soporte para otros frameworks (Express, Fastify, etc.)
-
-### Como contribuir
-
-1. Fork del repo
-2. Crear branch: `git checkout -b feature/nuevo-patron`
-3. Hacer cambios
-4. PR con descripcion de que se agrego/cambio
+1. Fork the repo
+2. Create a branch: `git checkout -b feature/new-pattern`
+3. Make changes
+4. PR with description of what was added/changed
 
 ---
 
-## Licencia
+## License
 
-Uso interno — Gobierno de El Salvador (GOES)
+Internal use — Government of El Salvador (GOES)

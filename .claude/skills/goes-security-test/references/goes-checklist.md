@@ -1,172 +1,172 @@
-# Checklist de Ciberseguridad GOES — Referencia completa
+# GOES Cybersecurity Checklist — Full Reference
 
-Cada item DEBE tener al menos 1 test. El tag de trazabilidad es `GOES Checklist Rxx`.
+Each item MUST have at least 1 test. Traceability tag: `GOES Checklist Rxx`.
 
-## Categoria 1: Contenido Web
+## Category 1: Web Content
 
-| ID | Tarea | Epic | Feature | Severity |
-|----|-------|------|---------|----------|
-| R3 | No dejar contenido sensible (llaves, IDs, info personal) en archivos del proyecto | Seguridad | Sensitive Data Exposure | critical |
-| R4 | No exponer JS sensible o logica de negocio | Seguridad | Business Logic Exposure | critical |
-| R5 | Sanitizar entrada de datos (probar inyeccion de scripts XSS) | Seguridad | XSS Prevention / Input Sanitization | blocker |
-| R6 | Si el sitio es publico, configurar Robot.txt y sitemap.xml | Configuracion | Public Site Config | minor |
+| ID | Task | Epic | Feature | Severity |
+|----|------|------|---------|----------|
+| R3 | No sensitive data (keys, IDs, personal info) in project files or bundles | Security | Sensitive Data Exposure | critical |
+| R4 | No sensitive JS logic or business rules exposed in client-side code | Security | Business Logic Exposure | critical |
+| R5 | Sanitize all user input (test XSS injection via scripts, HTML, SQL) | Security | XSS Prevention / Input Sanitization | blocker |
+| R6 | Configure robots.txt and sitemap.xml if public site | Configuration | Public Site Config | minor |
 
-## Categoria 2: Entrada y salida de datos por el servidor
+## Category 2: Server Input/Output
 
-| ID | Tarea | Epic | Feature | Severity |
-|----|-------|------|---------|----------|
-| R8 | Mensajes 2xx, 4xx, 5xx genericos (no exponer detalles internos, stack traces, queries) | Seguridad | Generic Error Messages | critical |
-| R9 | Validacion por rol o permiso dentro del servidor | Autenticacion | RBAC Enforcement | blocker |
-| R10 | Eliminar todo log visible por el usuario (no exponer console.log en produccion) | Seguridad | Log Exposure Prevention | critical |
-| R11 | Validacion de tipo de datos via DTO, longitud de campo, cantidad maxima de registros | Dominio | DTO Validation / Input Constraints | critical |
+| ID | Task | Epic | Feature | Severity |
+|----|------|------|---------|----------|
+| R8 | Generic error messages for 2xx, 4xx, 5xx (never expose stack traces, queries, internals) | Security | Generic Error Messages | critical |
+| R9 | Role or permission-based validation on the server side | Authentication | RBAC Enforcement | blocker |
+| R10 | Remove all user-visible logs (no console.log in production) | Security | Log Exposure Prevention | critical |
+| R11 | Input validation via DTO: data type, field length, max records | Domain | DTO Validation / Input Constraints | critical |
 
-## Categoria 3: Autenticacion, registro y acciones de usuarios
+## Category 3: Authentication, Registration and User Actions
 
-| ID | Tarea | Epic | Feature | Severity |
-|----|-------|------|---------|----------|
-| R13 | Tiempo de vida bajo para access token (5 min) y refresh token | Seguridad | Token Lifetime Enforcement | critical |
-| R14 | Auth failures: MFA, rate limit, session management | Seguridad | Auth Failure Handling | blocker |
-| R15 | Encriptacion bcrypt, Argon2 o PBKDF2 en hashing de passwords | Seguridad | Password Hashing Strength | blocker |
-| R16 | Uso de algoritmo RS256 para firma de tokens JWT | Seguridad | JWT Signing Algorithm | blocker |
-| R17 | Session ID minimo 128 bits de entropia generado con CSPRNG | Seguridad | Session ID Entropy | critical |
-| R18 | Session ID regenerado post-login (previene session fixation) | Seguridad | Session Fixation Prevention | critical |
-| R19 | Validar signature, exp, iat, iss, aud en cada request JWT | Seguridad | JWT Claims Validation | blocker |
-| R20 | NO almacenar datos sensibles en el payload del JWT | Seguridad | JWT Payload Security | critical |
-| R21 | Bloquear navegacion forzada a rutas donde el usuario no deberia entrar | Autenticacion | Forced Browsing Prevention | critical |
-| R22 | 404 para cualquier ruta que no coincida con las definidas | Configuracion | Unknown Route Handling | normal |
-| R23 | Proteccion contra IDOR (modificar query/uri params no muestra info de otros usuarios) | Seguridad | IDOR Prevention | blocker |
-| R24 | Usuarios con bajo privilegio no acceden a acciones de alto privilegio | Autenticacion | Privilege Escalation Prevention | blocker |
-| R25 | Mismo usuario no puede registrarse repetidamente | Autenticacion | Duplicate Registration Prevention | critical |
-| R26 | No aceptar disposable emails como emails validos | Autenticacion | Disposable Email Rejection | normal |
-| R27 | Bloquear cuenta tras 3-5 intentos fallidos | Seguridad | Brute Force Protection | blocker |
-| R28 | Implementar metodo de recuperacion de cuenta | Autenticacion | Account Recovery | critical |
-| R29 | Si hay "recuerdame", la contrasena debe estar encriptada | Seguridad | Remember Me Security | critical |
-| R30 | Almacenamiento de contrasena del lado del servidor (nunca en cliente) | Seguridad | Server-side Password Storage | blocker |
-| R31 | No permitir usar el username como password | Seguridad | Weak Password Prevention | critical |
-| R32 | Renovar refresh token despues de cada uso (rotacion) | Seguridad | Token Rotation | blocker |
-| R33 | Validar token en cada peticion privada | Autenticacion | Token Validation Per Request | blocker |
-| R34 | Implementar RBAC (Role-Based Access Control) | Autenticacion | Role-Based Access Control | blocker |
-| R35 | Sistema de inactividad: timeout de sesion si no hay actividad | Seguridad | Session Inactivity Timeout | critical |
+| ID | Task | Epic | Feature | Severity |
+|----|------|------|---------|----------|
+| R13 | Short-lived access tokens (5 min) and refresh token rotation | Security | Token Lifetime Enforcement | critical |
+| R14 | Auth failure handling: MFA, rate limit, session management | Security | Auth Failure Handling | blocker |
+| R15 | Password hashing with bcrypt, Argon2, or PBKDF2 | Security | Password Hashing Strength | blocker |
+| R16 | RS256 algorithm for JWT token signing | Security | JWT Signing Algorithm | blocker |
+| R17 | Session ID with minimum 128 bits of entropy generated via CSPRNG | Security | Session ID Entropy | critical |
+| R18 | Session ID regenerated after login (prevents session fixation) | Security | Session Fixation Prevention | critical |
+| R19 | Validate signature, exp, iat, iss, aud on every JWT request | Security | JWT Claims Validation | blocker |
+| R20 | NO sensitive data stored in JWT payload | Security | JWT Payload Security | critical |
+| R21 | Block forced navigation to routes the user should not access | Authentication | Forced Browsing Prevention | critical |
+| R22 | Return 404 for any route that does not match defined routes | Configuration | Unknown Route Handling | normal |
+| R23 | IDOR protection (modifying query/URI params must not expose other users' data) | Security | IDOR Prevention | blocker |
+| R24 | Low-privilege users cannot access high-privilege actions | Authentication | Privilege Escalation Prevention | blocker |
+| R25 | Prevent duplicate user registration | Authentication | Duplicate Registration Prevention | critical |
+| R26 | Reject disposable email addresses | Authentication | Disposable Email Rejection | normal |
+| R27 | Lock account after 3-5 failed login attempts | Security | Brute Force Protection | blocker |
+| R28 | Implement account recovery method | Authentication | Account Recovery | critical |
+| R29 | If "remember me" is used, password must be encrypted | Security | Remember Me Security | critical |
+| R30 | Server-side password storage (never on client) | Security | Server-side Password Storage | blocker |
+| R31 | Do not allow username as password | Security | Weak Password Prevention | critical |
+| R32 | Rotate refresh token after every use | Security | Token Rotation | blocker |
+| R33 | Validate token on every private request | Authentication | Token Validation Per Request | blocker |
+| R34 | Implement RBAC (Role-Based Access Control) | Authentication | Role-Based Access Control | blocker |
+| R35 | Inactivity timeout: end session after idle period | Security | Session Inactivity Timeout | critical |
 
-## Categoria 4: Configuracion
+## Category 4: Configuration
 
-| ID | Tarea | Epic | Feature | Severity |
-|----|-------|------|---------|----------|
-| R37 | Implementar ORM (no queries raw, prevenir SQL injection) | Seguridad | ORM Usage / SQL Injection Prevention | blocker |
-| R38 | CORS: Access-Control-Allow-Origin solo origenes permitidos (no wildcard *) | Configuracion | CORS Origin Restriction | critical |
-| R39 | CORS: Access-Control-Allow-Methods solo metodos permitidos (eliminar no usados) | Configuracion | CORS Methods Restriction | critical |
-| R40 | Access-Control-Allow-Credentials: true solo si es necesario enviar cookies | Configuracion | CORS Credentials Policy | normal |
-| R41 | Access-Control-Max-Age: 3600 (cachear preflight por 1 hora) | Configuracion | CORS Preflight Cache | normal |
-| R42 | Cookies con HttpOnly, Secure, SameSite=Strict, Path=/ | Seguridad | Cookie Security Flags | blocker |
-| R43 | Debug mode deshabilitado en produccion | Configuracion | Debug Mode Disabled | critical |
-| R44 | Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' | Configuracion | CSP Header | critical |
-| R45 | X-Content-Type-Options: nosniff, X-Frame-Options: DENY (o SAMEORIGIN) | Configuracion | Security Headers (XCT, XFO) | critical |
-| R46 | Strict-Transport-Security: max-age=31536000; includeSubDomains; preload | Configuracion | HSTS Header | critical |
-| R47 | X-XSS-Protection: 0 (deprecado, usar CSP en su lugar) | Configuracion | XSS Protection Header | normal |
-| R48 | Referrer-Policy: strict-origin-when-cross-origin | Configuracion | Referrer Policy Header | normal |
-| R49 | Permissions-Policy: geolocation=(), camera=(), microphone=() | Configuracion | Permissions Policy Header | normal |
-| R50 | Cache-Control: no-store para respuestas sensibles | Configuracion | Cache Control Header | critical |
-| R51 | Cookie max-age y refresh token deben tener la misma duracion | Configuracion | Cookie Lifetime Alignment | critical |
-| R52 | Deshabilitar metodo HTTP PUT | Configuracion | HTTP PUT Disabled | normal |
-| R53 | Deshabilitar metodo HTTP TRACE | Configuracion | HTTP TRACE Disabled | critical |
-| R54 | Deshabilitar http method override | Configuracion | HTTP Override Disabled | critical |
-| R55 | Rate limit: 100 req/min normal, 5 req/min login | Seguridad | Rate Limiting | blocker |
+| ID | Task | Epic | Feature | Severity |
+|----|------|------|---------|----------|
+| R37 | Use ORM (no raw queries, prevent SQL injection) | Security | ORM Usage / SQL Injection Prevention | blocker |
+| R38 | CORS: Access-Control-Allow-Origin only allowed origins (no wildcard *) | Configuration | CORS Origin Restriction | critical |
+| R39 | CORS: Access-Control-Allow-Methods only allowed methods (remove unused) | Configuration | CORS Methods Restriction | critical |
+| R40 | Access-Control-Allow-Credentials: true only if cookies are needed | Configuration | CORS Credentials Policy | normal |
+| R41 | Access-Control-Max-Age: 3600 (cache preflight for 1 hour) | Configuration | CORS Preflight Cache | normal |
+| R42 | Cookies with HttpOnly, Secure, SameSite=Strict, Path=/ | Security | Cookie Security Flags | blocker |
+| R43 | Debug mode disabled in production | Configuration | Debug Mode Disabled | critical |
+| R44 | Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' | Configuration | CSP Header | critical |
+| R45 | X-Content-Type-Options: nosniff, X-Frame-Options: DENY (or SAMEORIGIN) | Configuration | Security Headers (XCT, XFO) | critical |
+| R46 | Strict-Transport-Security: max-age=31536000; includeSubDomains; preload | Configuration | HSTS Header | critical |
+| R47 | X-XSS-Protection: 0 (deprecated, use CSP instead) | Configuration | XSS Protection Header | normal |
+| R48 | Referrer-Policy: strict-origin-when-cross-origin | Configuration | Referrer Policy Header | normal |
+| R49 | Permissions-Policy: geolocation=(), camera=(), microphone=() | Configuration | Permissions Policy Header | normal |
+| R50 | Cache-Control: no-store for sensitive responses | Configuration | Cache Control Header | critical |
+| R51 | Cookie max-age and refresh token must have the same duration | Configuration | Cookie Lifetime Alignment | critical |
+| R52 | Disable HTTP PUT method | Configuration | HTTP PUT Disabled | normal |
+| R53 | Disable HTTP TRACE method | Configuration | HTTP TRACE Disabled | critical |
+| R54 | Disable HTTP method override | Configuration | HTTP Override Disabled | critical |
+| R55 | Rate limit: 100 req/min normal, 5 req/min login | Security | Rate Limiting | blocker |
 
-## Categoria 5: Manejo de archivos
+## Category 5: File Handling
 
-| ID | Tarea | Epic | Feature | Severity |
-|----|-------|------|---------|----------|
-| R57 | Validar extension de archivo Y magic byte (content-type puede ser falsificado) | Archivos | File Extension + Magic Byte Validation | blocker |
-| R58 | Whitelist de extensiones permitidas (.pdf, .jpg, .png) | Archivos | File Extension Whitelist | blocker |
-| R59 | Limitar tamano de archivo (ej: 10MB max) | Archivos | File Size Limit | critical |
-| R60 | Renombrar archivos con UUID (nunca usar nombre original) | Archivos | File UUID Rename | critical |
+| ID | Task | Epic | Feature | Severity |
+|----|------|------|---------|----------|
+| R57 | Validate file extension AND magic bytes (content-type can be spoofed) | Files | File Extension + Magic Byte Validation | blocker |
+| R58 | Whitelist of allowed extensions (.pdf, .jpg, .png) | Files | File Extension Whitelist | blocker |
+| R59 | Limit file size (e.g., 10MB max) | Files | File Size Limit | critical |
+| R60 | Rename files with UUID (never use original name) | Files | File UUID Rename | critical |
 
 ---
 
-## OWASP Top 10 — Mapeo a tests
+## OWASP Top 10 — Test Mapping
 
-| ID | Vulnerabilidad | Tests a generar | Tag |
-|----|---------------|-----------------|-----|
+| ID | Vulnerability | Tests to Generate | Tag |
+|----|--------------|-------------------|-----|
 | A01 | Broken Access Control | IDOR, Privilege Escalation, Forced Browsing, Missing Auth | OWASP A01 |
 | A02 | Cryptographic Failures | Weak Hashing, Sensitive Data in JWT, Missing TLS | OWASP A02 |
 | A03 | Injection | SQL Injection (ORM bypass), XSS, Command Injection | OWASP A03 |
 | A04 | Insecure Design | Business Logic Flaws, Missing Rate Limit | OWASP A04 |
 | A05 | Security Misconfiguration | Debug Mode, Default Creds, Missing Headers, CORS wildcard | OWASP A05 |
-| A06 | Vulnerable Components | (SCA - fuera del scope de unit tests) | OWASP A06 |
+| A06 | Vulnerable Components | (SCA — outside the scope of unit tests) | OWASP A06 |
 | A07 | Auth Failures | Brute Force, Timing Attack, Weak Password, Token Replay, Enumeration | OWASP A07 |
-| A08 | Data Integrity Failures | (CI/CD - fuera del scope de unit tests) | OWASP A08 |
+| A08 | Data Integrity Failures | (CI/CD — outside the scope of unit tests) | OWASP A08 |
 | A09 | Logging Failures | Missing Audit Log, Sensitive Data in Logs | OWASP A09 |
 | A10 | SSRF | URL Validation, Whitelist Enforcement | OWASP A10 |
 
-## OWASP API Security Top 10 — Mapeo a tests
+## OWASP API Security Top 10 — Test Mapping
 
-| ID | Vulnerabilidad | Tests a generar | Tag |
-|----|---------------|-----------------|-----|
-| API1 | Broken Object Level Auth | Acceder a recurso de otro usuario por ID | OWASP API1 |
-| API2 | Broken Authentication | Rate limit en login, MFA bypass | OWASP API2 |
-| API3 | Broken Object Property Auth | No exponer propiedades sensibles, DTOs por rol | OWASP API3 |
-| API4 | Unrestricted Resource Consumption | Rate limit, pagination limit, payload max size | OWASP API4 |
-| API5 | Broken Function Level Auth | Admin endpoint accedido por user normal | OWASP API5 |
-| API6 | Unrestricted Access to Flows | Validar secuencias de negocio | OWASP API6 |
-| API7 | Server Side Request Forgery | Whitelist URLs, validar esquemas | OWASP API7 |
-| API8 | Security Misconfiguration | Headers, CORS, metodos HTTP innecesarios | OWASP API8 |
-| API9 | Improper Inventory Management | Documentar APIs, deprecar versiones antiguas | OWASP API9 |
-| API10 | Unsafe Consumption of APIs | Validar respuestas de terceros, timeouts, circuit breakers | OWASP API10 |
+| ID | Vulnerability | Tests to Generate | Tag |
+|----|--------------|-------------------|-----|
+| API1 | Broken Object Level Auth | Access another user's resource by ID | OWASP API1 |
+| API2 | Broken Authentication | Rate limit on login, MFA bypass | OWASP API2 |
+| API3 | Broken Object Property Auth | Do not expose sensitive properties, role-based DTOs | OWASP API3 |
+| API4 | Unrestricted Resource Consumption | Rate limit, pagination limit, max payload size | OWASP API4 |
+| API5 | Broken Function Level Auth | Admin endpoint accessed by regular user | OWASP API5 |
+| API6 | Unrestricted Access to Flows | Validate business sequences | OWASP API6 |
+| API7 | Server Side Request Forgery | URL whitelist, schema validation | OWASP API7 |
+| API8 | Security Misconfiguration | Headers, CORS, unnecessary HTTP methods | OWASP API8 |
+| API9 | Improper Inventory Management | Document APIs, deprecate old versions | OWASP API9 |
+| API10 | Unsafe Consumption of APIs | Validate third-party responses, timeouts, circuit breakers | OWASP API10 |
 
 ---
 
-## Guia GOES — Secciones de referencia
+## GOES Guide — Reference Sections
 
-### Seccion 3: Validacion de Entrada
-- Validar en el servidor (nunca confiar en el cliente)
-- Whitelist sobre Blacklist
-- Sanitizar y Escapar
-- Validar tipo, longitud, formato y rango
-- Canonicalizar antes de validar (UTF-8)
+### Section 3: Input Validation
+- Validate on the server (never trust the client)
+- Whitelist over Blacklist
+- Sanitize and Escape
+- Validate type, length, format, and range
+- Canonicalize before validating (UTF-8)
 
-### Seccion 4: Autenticacion y Autorizacion
-- 4.1 Politicas de Contrasenas: minimo 12 chars, verificar contra listas comprometidas (HaveIBeenPwned), bcrypt(12)/Argon2(memory=64MB,iterations=3)/PBKDF2
-- 4.2 Gestion de Sesiones: 128 bits entropia CSPRNG, regenerar post-login, HttpOnly/Secure/SameSite=Strict/Path=/, timeout inactividad 15-30 min, timeout absoluto 4-8 horas, invalidar en logout server-side
-- 4.3 JWT Best Practices: RS256 o ES256 (NUNCA none o HS256 con secreto debil), validar signature/exp/iat/iss/aud, access token 15 min max, refresh en httpOnly cookie con rotacion por uso, NO datos sensibles en payload
-- 4.4 Control de Acceso RBAC/ABAC: denegar por defecto, validar en CADA endpoint, no confiar en IDs de URL (verificar ownership), least privilege, log accesos denegados
+### Section 4: Authentication and Authorization
+- 4.1 Password Policies: minimum 12 chars, check against compromised lists (HaveIBeenPwned), bcrypt(12)/Argon2(memory=64MB,iterations=3)/PBKDF2
+- 4.2 Session Management: 128 bits entropy CSPRNG, regenerate after login, HttpOnly/Secure/SameSite=Strict/Path=/, inactivity timeout 15-30 min, absolute timeout 4-8 hours, invalidate on server-side logout
+- 4.3 JWT Best Practices: RS256 or ES256 (NEVER none or HS256 with weak secret), validate signature/exp/iat/iss/aud, access token 15 min max, refresh in httpOnly cookie with per-use rotation, NO sensitive data in payload
+- 4.4 RBAC/ABAC Access Control: deny by default, validate on EVERY endpoint, do not trust URL IDs (verify ownership), least privilege, log denied access
 
-### Seccion 5: Criptografia
-- Hashing passwords: Argon2id, bcrypt, PBKDF2 (NUNCA MD5, SHA1, SHA256 solo)
-- TLS 1.2 minimo, ideal 1.3
-- NO hardcodear secretos, usar vault (HashiCorp, AWS Secrets Manager)
-- .gitignore para archivos sensibles, git-secrets para pre-commit hooks
+### Section 5: Cryptography
+- Password hashing: Argon2id, bcrypt, PBKDF2 (NEVER MD5, SHA1, SHA256 alone)
+- TLS 1.2 minimum, ideally 1.3
+- DO NOT hardcode secrets, use vault (HashiCorp, AWS Secrets Manager)
+- .gitignore for sensitive files, git-secrets for pre-commit hooks
 
-### Seccion 6: Seguridad en APIs
-- Rate Limiting: 5 intentos/min login por IP, 100-1000 req/min APIs, responder 429 + Retry-After
-- Token bucket o sliding window algorithm
+### Section 6: API Security
+- Rate Limiting: 5 attempts/min login per IP, 100-1000 req/min APIs, respond 429 + Retry-After
+- Token bucket or sliding window algorithm
 
-### Seccion 7: Seguridad en Base de Datos
-- SIEMPRE queries parametrizadas / ORM (Prisma, TypeORM, Hibernate)
-- NUNCA concatenar strings: "SELECT * FROM users WHERE id = " + userId // NUNCA
-- Principio de menor privilegio: usuario BD especifico por app, solo SELECT/INSERT/UPDATE/DELETE, NUNCA root/sa/admin, NO permisos DDL (CREATE, DROP, ALTER)
+### Section 7: Database Security
+- ALWAYS use parameterized queries / ORM (Prisma, TypeORM, Hibernate)
+- NEVER concatenate strings: "SELECT * FROM users WHERE id = " + userId // NEVER
+- Least privilege principle: app-specific DB user, only SELECT/INSERT/UPDATE/DELETE, NEVER root/sa/admin, NO DDL permissions (CREATE, DROP, ALTER)
 
-### Seccion 8: Headers de Seguridad HTTP
+### Section 8: HTTP Security Headers
 - Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'
 - X-Content-Type-Options: nosniff
-- X-Frame-Options: DENY (o SAMEORIGIN si necesitas iframes)
+- X-Frame-Options: DENY (or SAMEORIGIN if iframes are needed)
 - Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-- X-XSS-Protection: 0 (deprecado, usar CSP)
+- X-XSS-Protection: 0 (deprecated, use CSP)
 - Referrer-Policy: strict-origin-when-cross-origin
 - Permissions-Policy: geolocation=(), camera=(), microphone=()
-- Cache-Control: no-store (para respuestas sensibles)
-- CORS: origenes especificos (NUNCA *), solo metodos necesarios (GET, POST), credentials solo si necesario, max-age 3600
+- Cache-Control: no-store (for sensitive responses)
+- CORS: specific origins (NEVER *), only necessary methods (GET, POST), credentials only if needed, max-age 3600
 
-### Seccion 9: Manejo de Errores y Logging
-- 9.1 Errores Seguros: mensajes genericos "Ocurrio un error", NUNCA exponer stack traces/queries SQL/rutas de archivos/versiones de software, IDs de correlacion, loguear detalles en servidor (no al cliente), debug mode deshabilitado en produccion
-- 9.2 Que Loguear: intentos login (exitosos y fallidos) con IP y timestamp, cambios password y datos perfil, acceso denegado (403), operaciones admin y cambios de roles, errores validacion de entrada (posibles ataques), creacion/eliminacion de recursos sensibles
-- 9.3 Que NO Loguear: contrasenas (ni texto plano ni hasheadas), tokens de sesion/JWTs/API keys, numeros de tarjetas completos, datos personales sensibles (SSN, datos medicos), secretos de configuracion
+### Section 9: Error Handling and Logging
+- 9.1 Secure Errors: generic messages "An error occurred", NEVER expose stack traces/SQL queries/file paths/software versions, correlation IDs, log details on server (not to client), debug mode disabled in production
+- 9.2 What to Log: login attempts (successful and failed) with IP and timestamp, password and profile changes, access denied (403), admin operations and role changes, input validation errors (potential attacks), creation/deletion of sensitive resources
+- 9.3 What NOT to Log: passwords (plain text or hashed), session tokens/JWTs/API keys, full card numbers, sensitive personal data (SSN, medical records), configuration secrets
 
-### Seccion 10: Upload de Archivos
-- Validar extension Y magic bytes (content-type puede ser falsificado)
-- Whitelist de extensiones (.pdf, .jpg, .png)
-- Limitar tamano maximo (ej: 10MB)
-- Renombrar con UUID (nunca usar nombre original)
-- Almacenar fuera del webroot o en storage externo (S3)
-- Escanear con antivirus antes de procesar
-- Servir con Content-Disposition: attachment
-- NO ejecutar archivos subidos (deshabilitar ejecucion en directorio de uploads)
+### Section 10: File Upload
+- Validate extension AND magic bytes (content-type can be spoofed)
+- Whitelist of extensions (.pdf, .jpg, .png)
+- Limit max file size (e.g., 10MB)
+- Rename with UUID (never use original name)
+- Store outside webroot or in external storage (S3)
+- Scan with antivirus before processing
+- Serve with Content-Disposition: attachment
+- DO NOT execute uploaded files (disable execution in uploads directory)
