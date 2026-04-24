@@ -1,6 +1,6 @@
 ---
 name: goes-security-testing
-description: "Genera tests de seguridad con un Custom HTML Reporter (sin Java ni Allure) cubriendo el Checklist de Ciberseguridad GOES, OWASP Top 10 y OWASP API Security Top 10. Configura Jest + custom reporter, y crea specs completas con evidencia JSON, trazabilidad regulatoria y clasificacion por epicas. El reporte HTML incluye sidebar con navegacion Epic-Feature-Story, modal de detalle, graficos SVG, tema oscuro, busqueda y export PDF. Activar cuando el usuario pida: tests de seguridad, checklist GOES, pentest tests, security specs, reporte de seguridad HTML, security report, o cualquier variante."
+description: "Genera tests de seguridad con un Custom HTML + Excel Reporter (sin Java ni Allure) cubriendo el Checklist de Ciberseguridad GOES, OWASP Top 10 y OWASP API Security Top 10. Configura Jest + custom reporter y crea specs completas con evidencia JSON, trazabilidad regulatoria y clasificacion por epicas. El reporte incluye sidebar Epic-Feature-Story, graficos SVG, tema oscuro, busqueda y buckets (Pasados / Desactivados / Migrados / No aplicables). Activar cuando el usuario pida: tests de seguridad, checklist GOES, pentest tests, security specs, reporte de seguridad HTML o Excel, security report, o cualquier variante."
 ---
 
 # GOES Security Testing — Skill para NestJS + Jest + Custom HTML Reporter
@@ -10,11 +10,17 @@ description: "Genera tests de seguridad con un Custom HTML Reporter (sin Java ni
 Este skill genera tests de seguridad profesionales para proyectos **NestJS + Jest** con un **Custom HTML Reporter** (sin Java, sin Allure).
 Cubre **60 items** del Checklist de Ciberseguridad GOES, **OWASP Top 10** y **OWASP API Security Top 10**.
 
-El reporte HTML es un archivo unico autocontenido con:
-- Sidebar con navegacion por Epic > Feature > Story
-- Modal de detalle con severity badges, tags, steps y evidencia JSON con syntax highlighting
-- Graficos SVG (pie de pass/fail, barras por severity, donut OWASP)
-- Tema oscuro, busqueda en tiempo real, export PDF
+El reporter produce DOS artefactos autocontenidos:
+
+- **HTML** (`reports/security/security-report.html`)
+  - Sidebar con navegacion por Epic > Feature > Story
+  - Modal de detalle con severity badges, tags, steps y evidencia JSON con syntax highlighting
+  - Graficos SVG (pie de pass/fail, barras por severity, donut OWASP)
+  - Buckets: Pasados / Desactivados / Migrados / No aplicables
+  - Tema oscuro, busqueda en tiempo real
+- **Excel** (`reports/security/security-report.xlsx`)
+  - Una hoja por bucket, una fila por test con todos los campos de metadata y tags
+  - Ideal como anexo de auditoria regulatoria
 
 ---
 
@@ -47,8 +53,10 @@ Antes de generar cualquier codigo, analizar la estructura del proyecto:
 Verificar en package.json y solo instalar lo que falte:
 
 ```bash
-npm install --save-dev ts-jest @types/jest
+npm install --save-dev ts-jest @types/jest xlsx
 ```
+
+`xlsx` (SheetJS) es usado por el reporter para generar el Excel (`security-report.xlsx`) en paralelo al HTML.
 
 **NO instalar Allure, allure-commandline, allure-jest ni jest-html-reporters.** Este sistema usa un reporter custom puro Node.js que no necesita Java ni dependencias externas de reporte.
 
@@ -60,10 +68,25 @@ Este skill incluye el reporter bundled en `.claude/skills/goes-security-test/rep
 
 El reporter consiste en dos archivos:
 
-- **`reporter/html-reporter.js`** — Jest custom reporter (JavaScript puro, ~1600 lineas). Implementa `onRunComplete(testContexts, results)`: lee metadata JSON temporales, cruza con resultados de Jest, genera HTML autocontenido con sidebar, charts SVG, dark theme, busqueda y export PDF.
-- **`reporter/metadata.ts`** — Collector de metadata. Exporta `report()` y `AllureCompat`. Cada test registra epic, feature, story, severity, tags, steps, evidencia. Se escribe a archivos JSON temporales via `flush()`.
+- **`reporter/html-reporter.js`** — Jest custom reporter (JavaScript puro, ~1780 lineas). Implementa `onRunComplete(testContexts, results)`: lee metadata JSON temporales, cruza con resultados de Jest y genera DOS artefactos autocontenidos:
+  - `reports/security/security-report.html` — sidebar Epic > Feature > Story, modal de detalle, charts SVG, dark theme, busqueda en tiempo real.
+  - `reports/security/security-report.xlsx` — workbook con hojas por bucket (Pasados / Desactivados / Migrados / No aplicables), una fila por test con todos los campos de metadata, severity y tags — listo para auditoria y evidencia regulatoria.
+- **`reporter/metadata.ts`** — Collector de metadata. Exporta `report()` y `AllureCompat`. Cada test registra epic, feature, story, severity, tags, steps, evidencia y se escribe a archivos JSON temporales via `flush()`.
 
 **NO modificar los archivos del reporter.** Estan listos para usar.
+
+### Buckets de clasificacion
+
+El reporter clasifica automaticamente cada test en uno de cuatro buckets segun sus tags:
+
+| Bucket | Criterio | Cuando usarlo |
+|--------|----------|---------------|
+| **Pasados** | Tests que corrieron y pasaron | Control implementado y verificado |
+| **Desactivados** | Tests con `.skip()` que tienen metadata | Control temporalmente deshabilitado (ej: BE caido, feature flag apagado) |
+| **Migrados** | Tests con tag `Migrado` | Control que antes aplicaba y ahora vive en otra capa |
+| **No aplicables** | Tests con tag `N/A` | Controles fuera del scope del servicio (ej: UI-only en un backend) |
+
+Cada bucket aparece como una hoja separada en el Excel y como una seccion filtrable en el HTML.
 
 La estructura del proyecto sera:
 
@@ -121,15 +144,18 @@ import { report } from '@security-reporter/metadata';
 
 ```json
 {
-  "test:security:html": "jest --config test/security/jest-security-html.config.ts --verbose"
+  "test:security": "jest --config test/security/jest-security-html.config.ts --verbose"
 }
 ```
 
 Para generar el reporte:
 ```bash
-npm run test:security:html
-# El HTML se genera en reports/security/security-report.html
+npm run test:security
+# HTML:  reports/security/security-report.html
+# Excel: reports/security/security-report.xlsx
 ```
+
+Ambos archivos se regeneran en cada corrida. El HTML es autocontenido (se puede abrir sin servidor). El Excel incluye una hoja por bucket y es ideal para anexos de auditoria.
 
 ---
 
@@ -443,10 +469,12 @@ Estas son las secciones de la Guia de Desarrollo Seguro GOES que deben mapearse 
 
 Despues de generar todos los archivos:
 
-1. Ejecutar `npm run test:security:html` para verificar que todos los tests pasan y el reporte se genera
+1. Ejecutar `npm run test:security` para verificar que todos los tests pasan y los reportes se generan
 2. Si hay errores de ESLint, corregirlos (especialmente require-await en archivos de test)
-3. Verificar que `reports/security/security-report.html` se genero correctamente
-4. Mostrar resumen: cuantos tests generados, cuantos items del checklist cubiertos, cuantos OWASP cubiertos
+3. Verificar que se generaron AMBOS artefactos:
+   - `reports/security/security-report.html`
+   - `reports/security/security-report.xlsx`
+4. Mostrar resumen: cuantos tests generados, cuantos items del checklist cubiertos, cuantos OWASP cubiertos, distribucion por bucket (pasados / desactivados / migrados / no aplicables)
 
 ---
 

@@ -1,8 +1,8 @@
 # goes-security-skill
 
-Claude skill for generating automated security tests with a **Custom HTML Reporter** for **NestJS + Jest** projects.
+Claude skill for generating automated security tests with a **Custom HTML + Excel Reporter** for **NestJS + Jest** projects.
 
-No Java, no Allure — pure Node.js reporter that generates a self-contained HTML file with sidebar navigation, charts, and evidence highlighting.
+No Java, no Allure — pure Node.js reporter that generates a self-contained HTML file (with sidebar navigation, charts, evidence highlighting and bucket classification) plus an Excel workbook ready for regulatory evidence.
 
 Covers the **GOES Cybersecurity Checklist** (60 items), **OWASP Top 10**, and **OWASP API Security Top 10**.
 
@@ -74,7 +74,9 @@ When you activate the skill, Claude:
    - Visible steps (Prepare / Execute / Verify)
    - JSON evidence (attacker payload + defense response)
 5. Runs all security tests automatically
-6. Generates the HTML report at `reports/security/security-report.html`
+6. Generates BOTH artefacts:
+   - `reports/security/security-report.html` — interactive report with buckets (Pasados / Desactivados / Migrados / No aplicables)
+   - `reports/security/security-report.xlsx` — workbook with one sheet per bucket for audit annexes
 
 ---
 
@@ -91,9 +93,11 @@ When you activate the skill, Claude:
 
 ```bash
 npm run test:security
-# Report generated at: reports/security/security-report.html
-# Open it in your browser — no extra commands needed
+# HTML:  reports/security/security-report.html  (open directly in any browser)
+# Excel: reports/security/security-report.xlsx  (one sheet per bucket)
 ```
+
+Both files are self-contained and regenerated on every run. The HTML is ideal for local exploration; the Excel is ideal as an annex for security / compliance reviews.
 
 ---
 
@@ -148,6 +152,7 @@ API1 (Object Level Auth), API2 (Broken Auth), API3 (Property Auth), API4 (Resour
 - **NestJS** project with Jest configured
 - **Node.js 18+**
 - **No Java required** — uses a custom pure Node.js HTML reporter
+- **`xlsx` (SheetJS)** installed as devDependency (for the Excel output). The skill installs it automatically on first run.
 
 ---
 
