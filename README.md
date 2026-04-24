@@ -57,7 +57,7 @@ Generate security tests for all services using the goes-security-test skill.
 Cover all GOES checklist items with OWASP traceability.
 ```
 
-Claude reads the skill, analyzes your actual code, configures Jest with the bundled reporter, generates the tests, runs them, and generates the HTML report automatically.
+Claude reads the skill, analyzes your actual code, configures Jest with the bundled reporter, generates the tests, runs them, and generates the HTML + Excel reports automatically.
 
 ---
 
@@ -66,7 +66,7 @@ Claude reads the skill, analyzes your actual code, configures Jest with the bund
 When you activate the skill, Claude:
 
 1. Analyzes your services, controllers, guards, and middleware
-2. Installs dependencies if missing (`ts-jest`, `@types/jest`) — no Java required
+2. Installs dependencies if missing (`ts-jest`, `@types/jest`, `xlsx`) — no Java required
 3. Configures Jest to use the bundled reporter directly from `.claude/` (no file duplication)
 4. Creates `test/security/` folder with `.security-html.spec.ts` files containing:
    - Metadata (epic, feature, story, severity, tags) via `AllureCompat`
@@ -115,7 +115,7 @@ Both files are self-contained and regenerated on every run. The HTML is ideal fo
 
 ### OWASP Top 10
 
-A01 (Broken Access Control), A02 (Crypto Failures), A03 (Injection), A05 (Security Misconfiguration), A07 (Auth Failures), A09 (Logging Failures)
+A01 (Broken Access Control), A02 (Crypto Failures), A03 (Injection), A04 (Insecure Design), A05 (Security Misconfiguration), A07 (Auth Failures), A09 (Logging Failures)
 
 ### OWASP API Security Top 10
 
