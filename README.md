@@ -2,7 +2,7 @@
 
 Claude skill for generating automated security tests with a **Custom HTML Reporter** for **NestJS + Jest** projects.
 
-No Java, no Allure — pure Node.js reporter that produces a single self-contained HTML file with sidebar navigation (Epic → Feature → Story), severity / OWASP charts, JSON evidence with syntax highlighting, dark theme, real-time search and PDF export.
+Pure Node.js reporter that produces a single self-contained HTML file with sidebar navigation (Epic → Feature → Story), severity / OWASP charts, JSON evidence with syntax highlighting, dark theme, real-time search and PDF export.
 
 Covers the **GOES Cybersecurity Checklist** (60 items), **OWASP Top 10**, and **OWASP API Security Top 10**.
 
