@@ -100,11 +100,26 @@ When you activate the skill, Claude:
 
 ### Run the report
 
-```bash
-npm run test:security:html
-# Output: reports/security/security-report.html
-# Open it directly in any browser — no server needed.
+When Claude configures the skill it adds these scripts to your `package.json`:
+
+```json
+{
+  "test": "jest",
+  "test:e2e": "jest --config ./test/jest-e2e.json",
+  "test:security:html": "jest --config test/security/jest-security-html.config.ts --verbose",
+  "test:all": "npm test && npm run test:e2e && npm run test:security:html"
+}
 ```
+
+Common entry points:
+
+```bash
+npm run test:security:html    # only the security suite + HTML report
+npm run test:all              # full suite: unit + e2e + security
+npm test                      # only the regular unit tests
+```
+
+The HTML report lands at `reports/security/security-report.html` — open it in any browser, no server needed.
 
 The HTML is regenerated on every run. It is fully self-contained (CSS and JS embedded) so you can email it, attach it to a Jira ticket, or zip it as a compliance annex without external dependencies.
 

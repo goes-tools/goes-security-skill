@@ -241,16 +241,38 @@ import { report } from '@security-reporter/metadata';
 
 ### Scripts npm (agregar a package.json)
 
+Agregar `test:security:html` y `test:all`. Si los scripts `test` o `test:e2e`
+no existen en el proyecto (proyecto NestJS recien creado), agregarlos tambien
+con los defaults estandar.
+
 ```json
 {
-  "test:security:html": "jest --config test/security/jest-security-html.config.ts --verbose"
+  "test": "jest",
+  "test:e2e": "jest --config ./test/jest-e2e.json",
+  "test:security:html": "jest --config test/security/jest-security-html.config.ts --verbose",
+  "test:all": "npm test && npm run test:e2e && npm run test:security:html"
 }
 ```
 
-Para generar el reporte:
+Notas para la IA al actualizar `package.json`:
+- Si `test`, `test:e2e` u otros scripts ya existen en el proyecto, NO
+  sobrescribirlos: solo verificar que `test:security:html` y `test:all`
+  esten presentes.
+- Si el proyecto usa pnpm o yarn, ajustar `test:all` a
+  `pnpm test && pnpm test:e2e && pnpm test:security:html` o equivalente con
+  yarn.
+- Si el proyecto NO tiene tests E2E configurados, el `test:all` puede omitir
+  ese paso: `npm test && npm run test:security:html`.
+
+Para generar SOLO el reporte de seguridad:
 ```bash
 npm run test:security:html
 # El HTML se genera en reports/security/security-report.html
+```
+
+Para correr la suite completa (unit + e2e + seguridad):
+```bash
+npm run test:all
 ```
 
 ---
