@@ -18,27 +18,144 @@ El reporte HTML es un archivo unico autocontenido con:
 
 ---
 
-## PASO 1: Analizar el proyecto
+## PASO 1: Analizar el proyecto (EXHAUSTIVO — no solo services)
 
-Antes de generar cualquier codigo, analizar la estructura del proyecto:
+Antes de generar cualquier codigo, mapear TODA la superficie de seguridad del
+proyecto. NO basta con listar `.service.ts` — la logica de seguridad vive
+repartida en decoradores, guards, pipes, filtros, middleware, helpers, DTOs,
+main.ts y archivos de configuracion. Recorrer cada categoria abajo y leer los
+archivos relevantes ANTES de escribir un solo test.
+
+### 1.1 Manifiesto y dependencias
 
 ```
-1. Leer package.json para identificar:
-   - Framework (NestJS, Express, etc.)
-   - ORM (Prisma, TypeORM, Sequelize, etc.)
-   - Version de Jest
-   - Dependencias de auth (passport, @nestjs/jwt, bcrypt, etc.)
-
-2. Listar los modulos/servicios existentes:
-   - Glob: src/modules/**/**.service.ts
-   - Glob: src/modules/**/**.controller.ts
-   - Glob: src/**/*.module.ts
-
-3. Identificar que ya existe:
-   - Archivos .spec.ts existentes
-   - Configuracion de Jest actual
-   - Guards, interceptors, middleware de seguridad
+- Leer package.json:
+   * Framework (NestJS, Express, Fastify, etc.)
+   * ORM (Prisma, TypeORM, Sequelize, Mongoose, Drizzle)
+   * Version de Jest, ts-jest
+   * Dependencias de auth: passport, @nestjs/jwt, @nestjs/passport, bcrypt,
+     argon2, otplib, speakeasy
+   * Hardening: helmet, cors, csurf, express-rate-limit, @nestjs/throttler,
+     class-validator, class-transformer
+   * Manejo de archivos: multer, @nestjs/platform-express, file-type, sharp
+   * Logging: winston, pino, @nestjs/common Logger custom
+- Leer .env.example o config/*.ts para identificar variables sensibles
+  (JWT_SECRET, JWT_PUBLIC_KEY, BCRYPT_ROUNDS, CORS_ORIGINS, etc.)
+- Leer tsconfig.json para detectar flags relevantes (strict, paths)
 ```
+
+### 1.2 Bootstrap y configuracion global
+
+Estos archivos definen reglas que aplican a TODA la app — sin leerlos los tests
+asumen defaults equivocados.
+
+```
+- src/main.ts (o bootstrap.ts): leer COMPLETO
+   * app.use(helmet(...))                      -> cubre R44-R50
+   * app.enableCors(...)                       -> cubre R38-R41
+   * app.useGlobalPipes(new ValidationPipe(...))-> cubre R5, R11
+   * app.useGlobalGuards(...)                  -> cubre R9, R21, R33, R34
+   * app.useGlobalInterceptors(...)            -> puede cubrir R10, audit
+   * app.useGlobalFilters(...)                 -> cubre R8 (errores genericos)
+   * app.use(cookieParser(...))                -> cubre R42, R51
+   * app.setGlobalPrefix(...) y versionado
+- src/app.module.ts: imports de ThrottlerModule, JwtModule, ConfigModule
+- nest-cli.json (si aplica)
+```
+
+### 1.3 Endpoints — controllers + decoradores + DTOs
+
+```
+- Glob: src/**/*.controller.ts
+   * Por cada controller identificar metodos HTTP (@Get, @Post, @Patch,
+     @Delete) y sus rutas
+   * Decoradores aplicados al controller y a cada metodo:
+     - @UseGuards(...)                  -> quien protege
+     - @Roles(...)                      -> cubre R9, R24, R34
+     - @Public()                        -> endpoints sin auth
+     - @Throttle(...) / @SkipThrottle() -> cubre R55
+     - @ApiBearerAuth() / @ApiOperation
+   * Parametros: @Body() DTO, @Param(), @Query(), @Headers()
+   * Excepciones que el metodo puede lanzar (BadRequest, Forbidden, etc.)
+- Glob: src/**/*.dto.ts
+   * Decoradores de class-validator: @IsString, @IsEmail, @MinLength,
+     @MaxLength, @Matches, @IsUUID
+   * Decoradores de class-transformer: @Transform, @Exclude (cubre R20, API3)
+- Glob: src/**/*.entity.ts y src/**/*.schema.ts (Prisma schema, TypeORM
+  entities, Mongoose schemas) - campos sensibles, indices unicos, relaciones
+```
+
+### 1.4 Guards, pipes, interceptors, filters, middleware
+
+Estos son los componentes que IMPLEMENTAN la mayoria del checklist GOES - sin
+leerlos los tests no saben que verificar.
+
+```
+- Glob: src/**/*.guard.ts        (JwtAuthGuard, RolesGuard, ThrottlerGuard)
+- Glob: src/**/*.strategy.ts     (JwtStrategy, LocalStrategy de passport)
+- Glob: src/**/*.pipe.ts         (ValidationPipe custom, ParseUUIDPipe)
+- Glob: src/**/*.interceptor.ts  (LoggingInterceptor, TransformInterceptor)
+- Glob: src/**/*.filter.ts       (AllExceptionsFilter, HttpExceptionFilter)
+- Glob: src/**/*.middleware.ts   (helmet wrapper, request ID, audit log)
+- Glob: src/**/*.decorator.ts    (decoradores custom: @CurrentUser, @Roles,
+                                  @Public, @AuditAction)
+```
+
+### 1.5 Servicios, repositorios y helpers
+
+```
+- Glob: src/**/*.service.ts        (logica de negocio + auth/crypto)
+- Glob: src/**/*.repository.ts     (acceso a datos)
+- Glob: src/common/**/*.ts y src/utils/**/*.ts y src/helpers/**/*.ts
+   * Funciones de hashing, comparacion timing-safe, generacion de UUID,
+     sanitizacion, parseo de tokens. Estos archivos casi siempre contienen
+     codigo critico para R15, R17, R20, R32.
+- Glob: src/**/jwt.config.ts y src/**/auth.config.ts
+- Glob: src/**/cors.config.ts y src/**/throttler.config.ts
+```
+
+### 1.6 Manejo de archivos (si aplica)
+
+```
+- Buscar multer.diskStorage / memoryStorage en cualquier parte
+- Buscar @UseInterceptors(FileInterceptor(...))
+- Buscar uso de file-type, sharp, fluent-ffmpeg
+- Carpetas /uploads, /storage, /tmp (si existen)
+   * Si el proyecto NO maneja archivos, omitir patrones 20 (file upload).
+```
+
+### 1.7 Tests existentes y configuracion de Jest
+
+```
+- Glob: **/*.spec.ts, **/*.e2e-spec.ts (NO sobreescribir si existen)
+- jest.config.ts / jest.config.js / jest-e2e.config.ts
+- test/jest-e2e.json
+- Hay algun reporter ya configurado? Si es jest-html-reporters, allure-jest,
+  etc., desinstalarlo (este skill usa el reporter custom, no se necesita otro).
+```
+
+### 1.8 CI/CD y secretos (verificacion ligera)
+
+```
+- .github/workflows/*.yml o .gitlab-ci.yml: hay job de seguridad?
+- .env (NO leer su contenido si esta gitignored - solo verificar que NO esta
+  commiteado, eso ya cubre parte de R3)
+- .gitignore: confirmar que /node_modules, /dist, /coverage, /reports,
+  *.env estan excluidos
+```
+
+### 1.9 Salida del analisis (mental - no escribir archivos)
+
+Antes de pasar al paso siguiente, generar un mapa interno con:
+- Lista de modulos/recursos del proyecto.
+- Por cada modulo: que controllers expone, que servicios tiene, que guards lo
+  protegen, que DTOs valida.
+- Que items del checklist GOES YA estan implementados (porque encontraste el
+  guard / pipe / decorador correspondiente) -> testear.
+- Que items del checklist NO se ven implementados -> marcar como "test que
+  falla" o "test omitido" + recomendacion en `_recommendations.md`.
+- Que items NO aplican (por ejemplo, R57-R60 si el proyecto no maneja
+  archivos) -> omitir explicitamente.
 
 ---
 
@@ -458,7 +575,7 @@ Despues de generar todos los archivos:
 ## NOTAS IMPORTANTES PARA LA IA
 
 1. **NUNCA generar tests vacios o placeholder** — cada test debe tener assertions reales contra el codigo del proyecto.
-2. **Analizar el codigo real del servicio** antes de escribir tests. Leer el archivo .service.ts o .controller.ts y entender los metodos, validaciones y logica.
+2. **Analizar el codigo real ANTES de escribir tests** — y no solo el `.service.ts`. Leer ademas, segun aplique: el `.controller.ts` (decoradores, rutas), los DTOs (`class-validator`), los guards/pipes/interceptors/filters/middleware del recurso, los decoradores custom (`@Roles`, `@Public`, `@CurrentUser`, etc.), los helpers/utils que hagan hashing/comparacion/sanitizacion, `main.ts` (pipes globales, helmet, CORS), y la entity/schema correspondiente. Sin esto, los tests asumen comportamientos que no existen y dan falsos positivos.
 3. **Si un item del checklist no aplica** al servicio actual (ej: el servicio no maneja archivos, no generar tests de R57-R60), documentar en un comentario que items se omitieron y por que.
 4. **Priorizar tests de seguridad** sobre tests funcionales. Cada servicio debe tener al minimo:
    - Tests funcionales (CRUD/logica) con epic 'Dominio'

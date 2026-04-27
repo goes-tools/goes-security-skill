@@ -67,7 +67,16 @@ Claude reads the skill, analyses your actual code, configures Jest with the bund
 
 When you activate the skill, Claude:
 
-1. Analyses your services, controllers, guards, and middleware.
+1. **Maps the project's full security surface** — not just `*.service.ts`. The skill instructs Claude to read:
+   - `package.json`, `.env.example`, `tsconfig.json` (framework, ORM, auth deps, hardening libs).
+   - `main.ts` / bootstrap (helmet, CORS, global pipes/guards/filters, cookieParser).
+   - Controllers + their decorators (`@UseGuards`, `@Roles`, `@Public`, `@Throttle`, `@ApiBearerAuth`).
+   - DTOs (`class-validator` / `class-transformer` decorators) and entities / Prisma schemas.
+   - Guards, strategies, pipes, interceptors, filters, middleware and custom decorators.
+   - Helpers / utils where hashing, timing-safe comparison, UUID generation, sanitization or token parsing live.
+   - File-upload handlers (multer, `FileInterceptor`, `file-type`).
+   - Existing `.spec.ts`, Jest config and any pre-existing reporter.
+   - `.gitignore`, CI workflows and (lightly) the secrets posture.
 2. Installs missing dependencies (`ts-jest`, `@types/jest`) — no Java required.
 3. Configures Jest to use the bundled reporter directly from `.claude/` (no file duplication).
 4. Creates `test/security/` with `.security-html.spec.ts` files, each containing:
@@ -76,7 +85,7 @@ When you activate the skill, Claude:
    - Visible steps (Prepare / Execute / Verify).
    - JSON evidence (attacker payload + defense response).
 5. Runs the security tests automatically.
-6. Generates `reports/security/security-report.html` — single self-contained HTML file with charts, severity badges, OWASP buckets and full per-test detail.
+6. Generates `reports/security/security-report.html` — single self-contained HTML file with charts, severity badges, OWASP / GOES tag classification and full per-test detail.
 
 ---
 
