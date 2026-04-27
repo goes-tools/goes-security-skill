@@ -181,7 +181,6 @@ See `.claude/skills/goes-security-testing/references/test-patterns/_html-reporte
 
 - **NestJS** project with Jest configured.
 - **Node.js 18+**.
-- **No Java required** — uses a custom pure Node.js HTML reporter.
 
 ---
 
