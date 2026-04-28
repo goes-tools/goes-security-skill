@@ -2316,10 +2316,33 @@ class SecurityHtmlReporter {
       }
 
       const fileForRepro = test.relativePath || '';
-      const safeName = (test.name || '').replace(/"/g, '\\\\"');
-      const runCmd = safeName
-        ? \`npm run test:security:html -- -t "\${safeName}"\`
-        : 'npm run test:security:html';
+
+      // Regex-escape the test name so chars like (, ), |, ., *, +, ?, [, ], \\
+      // are matched literally by Jest's --testNamePattern. Then escape any
+      // double quote so the command stays valid in a shell-quoted string.
+      const regexEscaped = (test.name || '').replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&');
+      const safeName = regexEscaped.replace(/"/g, '\\\\"');
+
+      // Narrow Jest to just this file so even short --testNamePattern values
+      // can't collide with similarly-named tests in other files.
+      const fileBaseRaw = fileForRepro.split('/').pop() || '';
+      const fileBase = fileBaseRaw
+        .replace(/\\.spec\\.ts$/, '')
+        .replace(/\\.security-html$/, '');
+
+      // Use a positional path filter (instead of --testPathPattern) so the
+      // command works in both Jest 29 (where the flag is --testPathPattern)
+      // and Jest 30+ (where it was renamed to --testPathPatterns). Jest
+      // accepts a bare positional argument as a path regex pattern in any
+      // version.
+      let runCmd = 'npm run test:security:html';
+      if (fileBase && safeName) {
+        runCmd = \`npm run test:security:html -- "\${fileBase}" -t "\${safeName}"\`;
+      } else if (safeName) {
+        runCmd = \`npm run test:security:html -- -t "\${safeName}"\`;
+      } else if (fileBase) {
+        runCmd = \`npm run test:security:html -- "\${fileBase}"\`;
+      }
 
       content += \`
         <div class="modal-section">
