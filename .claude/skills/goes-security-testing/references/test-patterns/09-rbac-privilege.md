@@ -12,6 +12,11 @@
 
 **Covers:** R9 (RBAC Enforcement), R24 (Privilege Escalation Prevention), R34 (Role-Based Access Control)
 
+> **MANDATORY 3-layer coverage** (per SKILL.md "cobertura de 3 capas").
+> Testing `guard.canActivate()` directly (Layer 3) is necessary but not sufficient. If a developer removes `@UseGuards(RolesGuard)` or `@Roles('admin')` from a controller method, the guard simply never runs — and the Layer 3 test stays green because it invokes the guard manually.
+>
+> Add the Layer 2 test below: it inspects each protected controller method via `Reflect.getMetadata` and fails if `@UseGuards` or `@Roles` is missing.
+
 ```typescript
 it('PENTEST: should enforce role-based access on every endpoint', async () => {
   const allure = new AllureCompat();
@@ -105,5 +110,63 @@ it('PENTEST: should prevent privilege escalation via role manipulation', async (
     reason: 'Only ADMIN can change roles',
   });
   await allure.flush();
+});
+
+// LAYER 2 (mandatory) — @UseGuards(RolesGuard) and @Roles(...) are
+// applied to every admin/protected method. If a developer removes
+// @Roles from changeRole, this test fails immediately.
+it('R9/R34 — @UseGuards + @Roles are applied on every admin endpoint', async () => {
+  const t = report();
+  t.epic('Autenticacion');
+  t.feature('RBAC Enforcement');
+  t.story('Cada endpoint administrativo tiene @UseGuards(RolesGuard) y @Roles');
+  t.severity('blocker');
+  t.tag('Auth', 'OWASP A01', 'OWASP API5', 'GOES Checklist R9', 'GOES Checklist R34');
+
+  // Adapt to your project: import controller(s) and list their protected methods.
+  // import { AdminController } from '../../src/admin/admin.controller';
+  // import { UsersController } from '../../src/users/users.controller';
+
+  const protectedMethods = [
+    { ctrl: AdminController, method: 'listAllUsers', requiredRoles: ['ADMIN'] },
+    { ctrl: AdminController, method: 'deleteUser', requiredRoles: ['ADMIN'] },
+    { ctrl: AdminController, method: 'changeRole', requiredRoles: ['ADMIN'] },
+    { ctrl: UsersController, method: 'updateRole', requiredRoles: ['ADMIN'] },
+    // add every method that should be RBAC-protected
+  ];
+
+  t.evidence('Endpoints inspected (input)', protectedMethods.map((p) => ({
+    controller: p.ctrl.name,
+    method: p.method,
+    requiredRoles: p.requiredRoles,
+  })));
+
+  for (const { ctrl, method, requiredRoles } of protectedMethods) {
+    const target = ctrl.prototype[method];
+
+    // @Roles decorator metadata key (NestJS): 'roles'
+    const rolesMeta = Reflect.getMetadata('roles', target);
+
+    // @UseGuards metadata key: '__guards__' (method-level) or class-level
+    const guardsMeta =
+      Reflect.getMetadata('__guards__', target) ||
+      Reflect.getMetadata('__guards__', ctrl);
+
+    t.step(\`Verify: \${ctrl.name}.\${method} has @Roles\`);
+    expect(rolesMeta).toBeDefined();
+    expect(rolesMeta).toEqual(expect.arrayContaining(requiredRoles));
+
+    t.step(\`Verify: \${ctrl.name}.\${method} has @UseGuards (RolesGuard or JwtAuthGuard chain)\`);
+    expect(guardsMeta).toBeDefined();
+    expect(Array.isArray(guardsMeta)).toBe(true);
+    expect(guardsMeta.length).toBeGreaterThan(0);
+  }
+
+  t.evidence('All protected endpoints verified (output)', {
+    methodsChecked: protectedMethods.length,
+    allGuarded: true,
+  });
+
+  await t.flush();
 });
 ```

@@ -12,6 +12,9 @@
 
 **Covers:** R3 (Sensitive Data Exposure), R4 (Business Logic Exposure), R5 (XSS Prevention)
 
+> **MANDATORY 3-layer coverage** (per SKILL.md "cobertura de 3 capas").
+> Sending payloads to a service method (Layer 3) is not enough. If a developer removes `@IsString`, `@MaxLength`, `@Transform`, or weakens the global `ValidationPipe`, the Layer 3 test may still pass because the mocked service accepts whatever is given. Add the Layer 2 test below to verify DTO constraints exist.
+
 ```typescript
 it('PENTEST: should sanitize user input to prevent XSS injection', async () => {
   const allure = new AllureCompat();
@@ -107,5 +110,43 @@ it('PENTEST: should not expose sensitive data in source files or responses', asy
 
   await attach('Response fields (output)', { fields: Object.keys(result) });
   await allure.flush();
+});
+
+// LAYER 2 (mandatory) — DTOs declare class-validator constraints. If a
+// developer comments out @IsString / @MaxLength / @Matches, this test
+// fails because validateSync returns 0 errors on an empty DTO.
+it('R5/R11 — DTOs declare class-validator constraints on user-input fields', async () => {
+  const t = report();
+  t.epic('Seguridad');
+  t.feature('XSS Prevention / Input Sanitization');
+  t.story('Los DTOs de entrada de usuario tienen decoradores @IsString, @MaxLength, etc.');
+  t.severity('blocker');
+  t.tag('Config', 'OWASP A03', 'GOES Checklist R5', 'GOES Checklist R11');
+
+  // Adapt to your project: import each user-input DTO that wraps a request body.
+  // import { CreateUserDto } from '../../src/users/dto/create-user.dto';
+  // import { LoginDto } from '../../src/auth/dto/login.dto';
+  const { validateSync } = require('class-validator');
+
+  const dtos = [
+    { name: 'CreateUserDto', cls: CreateUserDto },
+    { name: 'LoginDto', cls: LoginDto },
+    // add every DTO that arrives via @Body() in a controller
+  ];
+
+  t.evidence('DTOs inspected (input)', { dtos: dtos.map((d) => d.name) });
+
+  for (const { name, cls } of dtos) {
+    const errors = validateSync(new cls());
+    t.step(\`Verify: \${name} has at least one validation constraint\`);
+    expect(errors.length).toBeGreaterThan(0);
+  }
+
+  t.evidence('Validation summary (output)', dtos.map(({ name, cls }) => ({
+    dto: name,
+    constrainedFields: validateSync(new cls()).map((e) => e.property),
+  })));
+
+  await t.flush();
 });
 ```

@@ -12,6 +12,9 @@
 
 **Covers:** R37 (ORM Usage / SQL Injection Prevention)
 
+> **MANDATORY 3-layer coverage** (per SKILL.md "cobertura de 3 capas").
+> The Layer 3 test below verifies that when `service.findByEmail(payload)` is called, the ORM receives the payload as a parameter (not concatenated). That's necessary but not sufficient — if a developer adds a new method that uses `prisma.$queryRaw` with string interpolation, the existing tests don't see it. Add the Layer 2 test below: a static scan of `src/` for raw-SQL patterns. Any new occurrence fails the suite.
+
 ```typescript
 it('PENTEST: should use ORM for all queries (no raw SQL concatenation)', async () => {
   const allure = new AllureCompat();
@@ -108,5 +111,78 @@ it('PENTEST: should prevent NoSQL injection in query parameters', async () => {
     allRejected: true,
   });
   await allure.flush();
+});
+
+// LAYER 2 (mandatory) — static scan of src/ for raw SQL patterns.
+// If a developer adds prisma.$queryRaw(...) with template-string
+// interpolation, this test fails. The scan is deterministic and runs
+// in milliseconds.
+it('R37 — Source code does NOT use raw SQL or string-interpolated queries', async () => {
+  const t = report();
+  t.epic('Seguridad');
+  t.feature('ORM Usage / SQL Injection Prevention');
+  t.story('Codigo fuente NO usa $queryRaw, $executeRaw, query() ni concat manual de SQL');
+  t.severity('blocker');
+  t.tag('Pentest', 'OWASP A03', 'GOES Checklist R37');
+
+  const fs = require('fs');
+  const path = require('path');
+
+  function walk(dir, results = []) {
+    if (!fs.existsSync(dir)) return results;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath, results);
+      } else if (entry.isFile() && /\\.(ts|js)$/.test(entry.name) && !/\\.spec\\.|\\.e2e-spec\\./.test(entry.name)) {
+        results.push(fullPath);
+      }
+    }
+    return results;
+  }
+
+  const srcDir = path.resolve(__dirname, '../../src');
+  const files = walk(srcDir);
+
+  // Patterns that indicate raw SQL or interpolated SQL — adapt as needed.
+  const dangerousPatterns = [
+    { name: 'Prisma $queryRawUnsafe', regex: /\\$queryRawUnsafe\\s*\\(/g },
+    { name: 'Prisma $executeRawUnsafe', regex: /\\$executeRawUnsafe\\s*\\(/g },
+    { name: 'TypeORM raw .query()', regex: /\\.query\\s*\\(\\s*[\`'"]/g },
+    { name: 'createQueryRunner().query', regex: /createQueryRunner\\(\\)\\.query\\(/g },
+    // $queryRaw and $executeRaw with TEMPLATE LITERALS are safe (parameterized).
+    // $queryRawUnsafe and string-arg .query() are dangerous.
+  ];
+
+  const findings = [];
+  for (const file of files) {
+    const content = fs.readFileSync(file, 'utf-8');
+    for (const { name, regex } of dangerousPatterns) {
+      const matches = content.match(regex);
+      if (matches) {
+        findings.push({
+          file: path.relative(process.cwd(), file),
+          pattern: name,
+          count: matches.length,
+        });
+      }
+    }
+  }
+
+  t.evidence('Static scan parameters (input)', {
+    srcDir: path.relative(process.cwd(), srcDir),
+    filesScanned: files.length,
+    dangerousPatterns: dangerousPatterns.map((p) => p.name),
+  });
+
+  t.step('Verify: no raw SQL or interpolated query patterns in src/');
+  expect(findings).toEqual([]);
+
+  t.evidence('Scan result (output)', findings.length === 0
+    ? { allClear: true, filesScanned: files.length }
+    : { findings });
+
+  await t.flush();
 });
 ```

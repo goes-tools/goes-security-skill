@@ -438,6 +438,44 @@ estatica de helmet), registrar un input descriptivo: `t.evidence('Initial state
 - Steps con ## Vulnerabilidad que previene y ## Defensa implementada
 - Evidence con payload del atacante (input) y respuesta de defensa (output)
 
+### Regla critica: cobertura de 3 capas para controles de defensa
+
+Un test que verifica **solo** la configuracion (env vars, module imports)
+NO sirve como evidencia de cumplimiento de un item del checklist. Si un
+desarrollador comenta el decorator `@Throttle`, `@UseGuards(RolesGuard)`,
+`@UseGuards(JwtAuthGuard)`, etc., el test sigue verde y el control
+queda desactivado en runtime sin que el reporte se entere.
+
+Para los items que implementan controles de defensa (rate limiting, RBAC,
+auth guards, validation pipes, helmet, CORS, throttling, brute force
+protection, IDOR), el spec DEBE incluir las **3 capas**:
+
+| Capa | Que verifica | Como |
+|------|--------------|------|
+| **1. Configuracion** | env vars, module imports, valores por defecto correctos | Leer `envConfig()`, `app.module.ts`, defaults |
+| **2. Aplicacion** | el decorator/guard esta puesto en cada endpoint relevante | `Reflect.getMetadata(...)` sobre el metodo del controller; verificar que la lista de endpoints protegidos coincide con la esperada |
+| **3. Comportamiento** | cuando se dispara, el control rechaza efectivamente | Mock del guard que devuelve `false` o `429`; o E2E con supertest enviando N+1 requests |
+
+**Si solo cubris la capa 1, el test es invalido y el item del checklist
+queda como falso positivo.** Documentar la limitacion en el evidence si
+por algun motivo no podes cubrir capa 2 o 3 (ej: el proyecto no expone
+el controller para Reflect, o no hay tiempo para E2E).
+
+Items afectados por esta regla:
+
+- R9, R24, R34 (RBAC) — verificar `@Roles` y `RolesGuard`
+- R21, R33 (Forced browsing / token per request) — verificar `@UseGuards(JwtAuthGuard)`
+- R27 (Brute force) — verificar contador de intentos + bloqueo
+- R5, R11 (DTO validation) — verificar `ValidationPipe` global + decoradores en DTO
+- R19 (JWT claims) — verificar que `JwtStrategy.validate()` chequea `signature/exp/iat/iss/aud`
+- R37 (ORM) — verificar que NO hay queries raw (`grep` por `$queryRaw`, `query()`, `createQueryRunner().query()`)
+- R38-R41 (CORS) — verificar `app.enableCors()` con valores correctos
+- R44-R50 (Headers) — verificar `app.use(helmet(...))` Y E2E que los headers salen
+- R55 (Rate limiting) — verificar config + `@Throttle` decorator + E2E 429
+
+NUNCA poner un test de control de defensa en un spec de "config-only".
+Cada test de control va en el spec del controller/service donde se aplica.
+
 ### Regla critica: items NO aplicables (notApplicable)
 
 Cuando un item del checklist GOES, OWASP o GOES no aplica al proyecto bajo
