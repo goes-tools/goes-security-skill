@@ -72,6 +72,7 @@ class SecurityHtmlReporter {
     }
 
     // Merge test results with metadata
+    const mergedRootDir = this.globalConfig?.rootDir || process.cwd();
     const mergedTests = [];
     for (const testResult of results.testResults) {
       for (const assertion of testResult.testResults) {
@@ -84,13 +85,18 @@ class SecurityHtmlReporter {
         const naReason = metadata?.naReason;
         const effectiveStatus = naReason ? 'skipped' : assertion.status;
 
+        // Relative path for the Reproducibility block (avoids leaking $HOME).
+        const relativePath = testResult.testFilePath
+          ? path.relative(mergedRootDir, testResult.testFilePath)
+          : '';
+
         const merged = {
           id: this.generateId(),
           name: assertion.title,
           fullName: assertion.fullName,
           status: effectiveStatus,
           duration: assertion.duration || 0,
-          filePath: testResult.testFilePath,
+          relativePath: relativePath,
           errors: assertion.failureMessages || [],
           epic: metadata?.epic,
           feature: metadata?.feature,
@@ -415,6 +421,93 @@ class SecurityHtmlReporter {
       background: #2563eb;
     }
 
+    .coverage-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      padding: 24px 24px 0 24px;
+      background: #1a1a2e;
+    }
+
+    .coverage-card {
+      background: linear-gradient(135deg, #1e2a3a 0%, #1a2535 100%);
+      border: 1px solid #2a3a4a;
+      border-radius: 8px;
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .coverage-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--accent, #3b82f6);
+    }
+
+    .coverage-label {
+      font-size: 11px;
+      color: #a0a0a0;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .coverage-numbers {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .coverage-fraction {
+      font-size: 30px;
+      font-weight: 700;
+      color: #e8e8e8;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .coverage-percent {
+      font-size: 15px;
+      color: #a0a0a0;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .coverage-bar {
+      width: 100%;
+      height: 6px;
+      background: #0f1722;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .coverage-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      width: 0;
+      transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .coverage-bar-fill.high { background: linear-gradient(90deg, #22c55e, #16a34a); }
+    .coverage-bar-fill.medium { background: linear-gradient(90deg, #eab308, #ca8a04); }
+    .coverage-bar-fill.low { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+    .coverage-card.high::before { background: #22c55e; }
+    .coverage-card.medium::before { background: #eab308; }
+    .coverage-card.low::before { background: #ef4444; }
+
+    .coverage-detail {
+      font-size: 11px;
+      color: #7a8595;
+      margin-top: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
     .charts-row {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -719,6 +812,72 @@ class SecurityHtmlReporter {
       color: #e2e8f0;
       font-size: 13px;
       line-height: 1.5;
+    }
+
+    .reproducibility-block {
+      background: #16213e;
+      border: 1px solid #2a3a4a;
+      border-radius: 4px;
+      padding: 12px 14px;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .repro-row {
+      display: grid;
+      grid-template-columns: 56px 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .repro-label {
+      color: #7a8595;
+      text-transform: uppercase;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+    }
+
+    .repro-value {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 12px;
+      color: #cbd5f5;
+      background: #0d1117;
+      padding: 6px 10px;
+      border-radius: 3px;
+      overflow-x: auto;
+      word-break: break-all;
+      border: 1px solid #1e2a3a;
+    }
+
+    .repro-cmd {
+      color: #7ee787;
+    }
+
+    .repro-copy {
+      background: #2a3a4a;
+      border: 1px solid #475569;
+      color: #cbd5f5;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 3px;
+      font-size: 12px;
+      transition: background 0.2s, border-color 0.2s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    .repro-copy:hover {
+      background: #475569;
+      border-color: #64748b;
+    }
+
+    .repro-copy.copied {
+      background: #16a34a;
+      border-color: #22c55e;
+      color: #fff;
     }
 
     .test-status {
@@ -1134,6 +1293,7 @@ class SecurityHtmlReporter {
         </div>
       </div>
 
+      <div class="coverage-row" id="coverageRow"></div>
       <div class="charts-row" id="chartsRow"></div>
       <div class="stats-row" id="statsRow"></div>
 
@@ -1166,13 +1326,126 @@ class SecurityHtmlReporter {
     let currentFilter = 'all';
     let filteredTests = DATA.tests;
 
+    const EXPECTED_GOES_IDS = [
+      'R3', 'R4', 'R5', 'R6',
+      'R8', 'R9', 'R10', 'R11',
+      'R13', 'R14', 'R15', 'R16', 'R17', 'R18', 'R19', 'R20',
+      'R21', 'R22', 'R23', 'R24', 'R25', 'R26', 'R27', 'R28', 'R29', 'R30',
+      'R31', 'R32', 'R33', 'R34', 'R35',
+      'R37', 'R38', 'R39', 'R40', 'R41', 'R42', 'R43', 'R44', 'R45',
+      'R46', 'R47', 'R48', 'R49', 'R50', 'R51', 'R52', 'R53', 'R54', 'R55',
+      'R57', 'R58', 'R59', 'R60',
+    ];
+
+    const EXPECTED_OWASP_TOP10 = [
+      'A01', 'A02', 'A03', 'A04', 'A05',
+      'A06', 'A07', 'A08', 'A09', 'A10',
+    ];
+
+    const EXPECTED_OWASP_API = [
+      'API1', 'API2', 'API3', 'API4', 'API5',
+      'API6', 'API7', 'API8', 'API9', 'API10',
+    ];
+
     function init() {
       buildSidebar();
+      renderCoverage();
       renderCharts();
       renderStats();
       renderTests();
       setupSidebarSearch();
       setupTestsSearch();
+    }
+
+    function extractIds(tests, regex) {
+      const covered = new Set();
+      const naCovered = new Set();
+      for (const test of tests) {
+        for (const tag of test.tags || []) {
+          const match = tag.match(regex);
+          if (match) {
+            const id = match[1].toUpperCase();
+            covered.add(id);
+            if (test.naReason) naCovered.add(id);
+          }
+        }
+      }
+      return { covered, naCovered };
+    }
+
+    function classForPercent(pct) {
+      if (pct >= 90) return 'high';
+      if (pct >= 70) return 'medium';
+      return 'low';
+    }
+
+    function renderCoverage() {
+      const row = document.getElementById('coverageRow');
+
+      const goes = extractIds(DATA.tests, /^GOES(?:\\s+Checklist)?\\s+(R\\d+)$/i);
+      const top10 = extractIds(DATA.tests, /^OWASP\\s+(A\\d{1,2})$/i);
+      const api = extractIds(DATA.tests, /^OWASP\\s+(API\\d{1,2})$/i);
+
+      const goesCovered = EXPECTED_GOES_IDS.filter((id) => goes.covered.has(id)).length;
+      const top10Covered = EXPECTED_OWASP_TOP10.filter((id) => top10.covered.has(id)).length;
+      const apiCovered = EXPECTED_OWASP_API.filter((id) => api.covered.has(id)).length;
+
+      const goesNA = EXPECTED_GOES_IDS.filter((id) => goes.naCovered.has(id)).length;
+      const top10NA = EXPECTED_OWASP_TOP10.filter((id) => top10.naCovered.has(id)).length;
+      const apiNA = EXPECTED_OWASP_API.filter((id) => api.naCovered.has(id)).length;
+
+      const cards = [
+        {
+          label: 'GOES Checklist',
+          covered: goesCovered,
+          total: EXPECTED_GOES_IDS.length,
+          na: goesNA,
+        },
+        {
+          label: 'OWASP Top 10',
+          covered: top10Covered,
+          total: EXPECTED_OWASP_TOP10.length,
+          na: top10NA,
+        },
+        {
+          label: 'OWASP API Top 10',
+          covered: apiCovered,
+          total: EXPECTED_OWASP_API.length,
+          na: apiNA,
+        },
+      ];
+
+      row.innerHTML = '';
+
+      for (const c of cards) {
+        const pct = c.total > 0 ? Math.round((c.covered / c.total) * 100) : 0;
+        const cls = classForPercent(pct);
+        const detail = c.na > 0
+          ? \`\${c.covered - c.na} covered · \${c.na} N/A · \${c.total - c.covered} pending\`
+          : \`\${c.covered} covered · \${c.total - c.covered} pending\`;
+
+        const card = document.createElement('div');
+        card.className = \`coverage-card \${cls}\`;
+        card.innerHTML = \`
+          <div class="coverage-label">\${c.label}</div>
+          <div class="coverage-numbers">
+            <span class="coverage-fraction">\${c.covered}/\${c.total}</span>
+            <span class="coverage-percent">\${pct}%</span>
+          </div>
+          <div class="coverage-bar">
+            <div class="coverage-bar-fill \${cls}" data-target="\${pct}"></div>
+          </div>
+          <div class="coverage-detail">\${detail}</div>
+        \`;
+        row.appendChild(card);
+      }
+
+      requestAnimationFrame(() => {
+        row.querySelectorAll('.coverage-bar-fill').forEach((bar) => {
+          const pct = bar.dataset.target;
+          bar.style.width = pct + '%';
+        });
+      });
     }
 
     function buildSidebar() {
@@ -2042,6 +2315,35 @@ class SecurityHtmlReporter {
         \`;
       }
 
+      const fileForRepro = test.relativePath || '';
+      const safeName = (test.name || '').replace(/"/g, '\\\\"');
+      const runCmd = safeName
+        ? \`npm run test:security:html -- -t "\${safeName}"\`
+        : 'npm run test:security:html';
+
+      content += \`
+        <div class="modal-section">
+          <div class="modal-section-title">Reproducibility</div>
+          <div class="reproducibility-block">
+            <div class="repro-row">
+              <span class="repro-label">File</span>
+              <code class="repro-value">\${escapeHtml(fileForRepro)}</code>
+              <button class="repro-copy" onclick="copyRepro(this)" title="Copy file path">📋</button>
+            </div>
+            <div class="repro-row">
+              <span class="repro-label">Test</span>
+              <code class="repro-value">\${escapeHtml(test.name || '')}</code>
+              <button class="repro-copy" onclick="copyRepro(this)" title="Copy test name">📋</button>
+            </div>
+            <div class="repro-row">
+              <span class="repro-label">Run</span>
+              <code class="repro-value repro-cmd">\${escapeHtml(runCmd)}</code>
+              <button class="repro-copy" onclick="copyRepro(this)" title="Copy command">📋</button>
+            </div>
+          </div>
+        </div>
+      \`;
+
       content += \`
         <div class="modal-section">
           <div class="modal-status">
@@ -2062,6 +2364,56 @@ class SecurityHtmlReporter {
 
     function closeModal() {
       document.getElementById('modalOverlay').classList.remove('active');
+    }
+
+    function copyRepro(btn) {
+      const value = btn.previousElementSibling?.textContent || '';
+      const restore = () => {
+        btn.classList.remove('copied');
+        btn.textContent = '📋';
+      };
+      const ok = () => {
+        btn.classList.add('copied');
+        btn.textContent = '✓';
+        setTimeout(restore, 1500);
+      };
+      const fail = () => {
+        btn.textContent = '✗';
+        setTimeout(restore, 1500);
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(value).then(ok).catch(() => {
+          // Fallback for browsers/contexts without clipboard API (e.g. file:// in Safari)
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = value;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            ok();
+          } catch (_) {
+            fail();
+          }
+        });
+      } else {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = value;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          ok();
+        } catch (_) {
+          fail();
+        }
+      }
     }
 
     function escapeHtml(text) {
