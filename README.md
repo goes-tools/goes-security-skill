@@ -1,183 +1,220 @@
 # goes-security-skill
 
-Claude skill for generating automated security tests with a **Custom HTML Reporter** for **NestJS + Jest** projects.
+A Claude Code skill that **generates, runs, and reports automated security tests** for **NestJS + Jest** projects, aligned with the **GOES Cybersecurity Checklist** (60 rows, 54 actionable items), **OWASP Top 10 (2021)**, and **OWASP API Security Top 10 (2023)**.
 
-Pure Node.js reporter that produces a single self-contained HTML file with sidebar navigation (Epic → Feature → Story), severity / OWASP charts, JSON evidence with syntax highlighting, dark theme, real-time search and PDF export.
+The output is a single self-contained HTML report — no server, no external assets — designed for compliance audits in government environments.
 
-Covers the **GOES Cybersecurity Checklist** (60 items), **OWASP Top 10**, and **OWASP API Security Top 10**.
+---
+
+## How it works
+
+1. The user copies the `.claude/` folder from this repo into a NestJS project.
+2. In Claude Code, the user types a short trigger like *"Generate security tests for this project with the goes-security-testing skill"*.
+3. Claude reads `SKILL.md`, exhaustively maps the project's security surface (controllers, DTOs, guards, pipes, interceptors, filters, middleware, custom decorators, helpers, `main.ts`, entities/schemas — not just `*.service.ts`), and generates one `.security-html.spec.ts` per relevant module with full metadata (epic, feature, story, severity, GOES + OWASP tags, input/output evidence).
+4. Claude configures Jest with the bundled custom HTML reporter and runs the suite.
+5. The output is `reports/security/security-report.html` — a single auditable file.
+
+The bundled reporter is pure Node.js JavaScript.
 
 ---
 
 ## Installation
 
-### 1. Clone this repo
-
 ```bash
+# 1. Clone this repo
 git clone https://github.com/goes-tools/goes-security-skill.git
+
+# 2. Copy .claude/ into your NestJS project
+cp -r goes-security-skill/.claude /path/to/your-nestjs-project/.claude
+
+# 3. Open Claude Code in that project
+cd /path/to/your-nestjs-project
+claude
 ```
 
-### 2. Copy the `.claude/` folder to your NestJS project
-
-```bash
-cp -r goes-security-skill/.claude/ /path/to/your-project/.claude/
-```
-
-Your project structure will look like:
+Then in Claude Code:
 
 ```
-your-nestjs-project/
-  .claude/
-    skills/
-      goes-security-testing/
-        SKILL.md                          <-- instructions for Claude
-        reporter/
-          html-reporter.js                <-- custom HTML reporter (bundled, JS)
-          metadata.ts                     <-- metadata collector + AllureCompat
-        references/
-          goes-checklist.md               <-- 60 items GOES checklist
-          test-patterns/                  <-- 21 code patterns + support files
-            _setup.md
-            _e2e-setup.md
-            _html-reporter-customization.md
-            _severity-guide.md
-            01-crud-validation.md
-            ...
-            21-audit-log.md
-  src/
-  package.json
-  ...
+Generate security tests for this project with the goes-security-testing skill.
 ```
 
-### 3. Open Claude in your project
-
-Open **Claude Code** or **Claude Cowork** in your project folder.
-
-### 4. Ask Claude to generate the tests
-
-```
-Generate security tests for all services using the goes-security-testing skill.
-Cover all GOES checklist items with OWASP traceability.
-```
-
-Claude reads the skill, analyses your actual code, configures Jest with the bundled reporter, generates the tests, runs them, and writes the HTML report automatically.
+That's it. The skill auto-activates on phrases like *"security tests"*, *"GOES checklist"*, *"pentest tests"*, *"security report"*, etc.
 
 ---
 
-## What Claude does
+## Usage
 
-When you activate the skill, Claude:
-
-1. **Maps the project's full security surface** — not just `*.service.ts`. The skill instructs Claude to read:
-   - `package.json`, `.env.example`, `tsconfig.json` (framework, ORM, auth deps, hardening libs).
-   - `main.ts` / bootstrap (helmet, CORS, global pipes/guards/filters, cookieParser).
-   - Controllers + their decorators (`@UseGuards`, `@Roles`, `@Public`, `@Throttle`, `@ApiBearerAuth`).
-   - DTOs (`class-validator` / `class-transformer` decorators) and entities / Prisma schemas.
-   - Guards, strategies, pipes, interceptors, filters, middleware and custom decorators.
-   - Helpers / utils where hashing, timing-safe comparison, UUID generation, sanitization or token parsing live.
-   - File-upload handlers (multer, `FileInterceptor`, `file-type`).
-   - Existing `.spec.ts`, Jest config and any pre-existing reporter.
-   - `.gitignore`, CI workflows and (lightly) the secrets posture.
-2. Installs missing dependencies (`ts-jest`, `@types/jest`) — no Java required.
-3. Configures Jest to use the bundled reporter directly from `.claude/` (no file duplication).
-4. Creates `test/security/` with `.security-html.spec.ts` files, each containing:
-   - Metadata (epic, feature, story, severity, tags) via `AllureCompat`.
-   - Triple traceability: `GOES Checklist Rxx` + `OWASP Axx` + `OWASP APIxx`.
-   - Visible steps (Prepare / Execute / Verify).
-   - JSON evidence (attacker payload + defense response).
-5. Runs the security tests automatically.
-6. Generates `reports/security/security-report.html` — single self-contained HTML file with charts, severity badges, OWASP / GOES tag classification and full per-test detail.
-
----
-
-## Usage examples
+### Minimal trigger
 
 ```
-> Generate security tests for the AuthService
-> Generate security tests for the UsersService
-> Generate security tests for all services
-> Generate security tests for the guards and middleware
+Generate security tests for this project with the goes-security-testing skill.
+```
+
+The skill reads `SKILL.md`, scans the project, generates tests, configures Jest, runs the suite, and produces the HTML report. `projectName` defaults to the value in `package.json#name`.
+
+### With customization
+
+```
+Generate security tests for this project with the goes-security-testing skill.
+
+Reporter:
+- projectName: "GOES — [System Name]"
+- reportTitle: "Security Test Report — GOES [System Name]"
+```
+
+### Targeted regeneration
+
+```
+Regenerate tests for AuthService with the goes-security-testing skill.
 ```
 
 ### Run the report
 
-When Claude configures the skill it adds these scripts to your `package.json`:
-
-```json
-{
-  "test": "jest",
-  "test:e2e": "jest --config ./test/jest-e2e.json",
-  "test:security:html": "jest --config test/security/jest-security-html.config.ts --verbose",
-  "test:all": "npm test && npm run test:e2e && npm run test:security:html"
-}
-```
-
-Common entry points:
+After Claude configures the skill, `package.json` has these scripts:
 
 ```bash
-npm run test:security:html    # only the security suite + HTML report
-npm run test:all              # full suite: unit + e2e + security
+npm run test:security:html    # security suite + HTML report
+npm run test:all              # unit + e2e + security
 npm test                      # only the regular unit tests
 ```
 
-The HTML report lands at `reports/security/security-report.html` — open it in any browser, no server needed.
+The HTML lands at `reports/security/security-report.html` — open it in any browser, no server needed. Self-contained (CSS, JS, data inline) so you can email it, attach it to a Jira ticket, or zip it as a compliance annex.
 
-The HTML is regenerated on every run. It is fully self-contained (CSS and JS embedded) so you can email it, attach it to a Jira ticket, or zip it as a compliance annex without external dependencies.
+---
+
+## What the HTML report includes
+
+### Header
+
+- Project name and report title (configurable).
+- **Generation timestamp** in `es-SV` locale (e.g. `28/04/2026, 14:35:00`) for audit traceability.
+- Reporter version.
+
+### Coverage cards
+
+Three cards at the top showing compliance against each framework:
+
+| Card | What it tracks |
+|---|---|
+| **GOES Checklist** | 54 actionable items from the 60-row checklist (R3-R60, excluding header rows R1, R2, R7, R12, R36, R56) |
+| **OWASP Top 10** | A01-A10 (2021) |
+| **OWASP API Top 10** | API1-API10 (2023) |
+
+Each card displays the fraction (e.g. `47/54`), the percentage, an animated progress bar, and a breakdown (`X covered · Y N/A · Z pending`). Cards use threshold colors: green ≥ 90%, yellow 70-89%, red < 70%.
+
+### Interactive charts
+
+Three SVG charts (not images) with native tooltips and click-to-filter:
+
+- **Test Status** — pie chart (passed / failed / skipped). Click a slice to filter the table to those tests.
+- **Severity Distribution** — bar chart by `blocker / critical / high / normal / minor / trivial`.
+- **OWASP Coverage** — donut chart of top OWASP tags by frequency.
+
+A filter pill appears next to "Test Results" when a chart filter is active, with a clear button.
+
+### Sidebar navigation
+
+Tree of `Epic → Feature → Story` derived from test metadata. **Collapsed by default** (▶ to expand). Each entry shows the test count and a pass/fail indicator. Sidebar search filters the tree (does not affect the test table).
+
+### Test results table
+
+- Sortable by severity by default.
+- Per-row badges: severity (or **N/A**) + GOES / OWASP tags.
+- Status icon (✓ pass · ✗ fail · ⊘ skipped).
+- A second search box (**"Filter test results..."**) above the table filters only the rows below.
+- Fade-in animation when filtering.
+
+### Test detail modal
+
+Click any row to open. Contents:
+
+- Severity + tags badges, with `OWASP A03` and similar styled distinctively.
+- **Not Applicable callout** if the test was marked with `t.notApplicable(reason)` — yellow stripe with the verifiable reason.
+- **Classification** (Epic / Feature / Story / Owner).
+- **Description** (HTML allowed).
+- **Steps** (numbered, in `Prepare / Execute / Verify` style).
+- **Evidence** — JSON evidence with syntax highlighting. Tests follow an `input + output` convention: at minimum one entry capturing the payload/request and one capturing the result/response.
+- **References** — automatic links to OWASP documentation derived from tags. `OWASP A03` → `owasp.org/Top10/A03_2021-Injection/`. Custom links via `t.link()` are appended.
+- **Errors** — full failure messages with stack traces (when status is failed).
+- **Reproducibility** — file path (relative), test name, and exact `npm` command to re-run, each with a copy-to-clipboard button.
+- Status footer (Status / Duration).
+
+### Search, filtering, export
+
+- **Sidebar search** — filters the category tree.
+- **Tests search** — filters the result table.
+- **Chart click** — filters by status / severity / OWASP tag.
+- **Filter pill** — clears any chart filter.
+- **PDF export** — `Cmd/Ctrl+P` produces a print layout with header, charts, stats, and per-test detail visible. Suitable as an audit annex.
+
+### Visual
+
+- Dark theme.
+- Smooth animations (chart hover, row fade-in, coverage bar fill).
+- Native page scroll — sidebar is sticky, the rest scrolls.
+- Responsive grid for stats and coverage cards.
 
 ---
 
 ## Coverage
 
-### GOES Cybersecurity Checklist (60 items)
+### GOES Cybersecurity Checklist
 
-| Category | Items | Covers |
-|----------|-------|--------|
-| Web Content | R3-R6 | Sensitive data, XSS, sanitization |
-| Server Input/Output | R8-R11 | Generic errors, RBAC, DTO validation |
-| Auth & Sessions | R13-R35 | JWT, bcrypt, RS256, brute force, IDOR, token rotation, RBAC |
-| Configuration | R37-R55 | CORS, HTTP headers, cookies, rate limit, ORM |
-| File Handling | R57-R60 | Magic bytes, whitelist, size limit, UUID rename |
+54 actionable items grouped in 5 categories:
 
-### OWASP Top 10
+| Category | Range | What it covers |
+|---|---|---|
+| Web Content | R3-R6 | Sensitive data exposure, XSS, sanitization |
+| Server I/O | R8-R11 | Generic errors, RBAC, DTO validation |
+| Auth & Sessions | R13-R35 | JWT (RS256, payload, claims), bcrypt, brute force, IDOR, token rotation, RBAC, session inactivity |
+| Configuration | R37-R55 | ORM enforcement, CORS, security headers, cookies, debug mode, HTTP methods, rate limiting |
+| File Handling | R57-R60 | Magic byte validation, extension whitelist, size limit, UUID rename |
 
-A01 (Broken Access Control), A02 (Crypto Failures), A03 (Injection), A04 (Insecure Design), A05 (Security Misconfiguration), A07 (Auth Failures), A09 (Logging Failures).
+### OWASP Top 10 (2021)
 
-A06 (Vulnerable Components) and A08 (Data Integrity Failures) are out of scope for unit tests; A10 (SSRF) is on the roadmap.
+A01 (Broken Access Control), A02 (Cryptographic Failures), A03 (Injection), A04 (Insecure Design), A05 (Security Misconfiguration), A07 (Auth Failures), A09 (Logging Failures).
 
-### OWASP API Security Top 10
+A06 (Vulnerable Components), A08 (Data Integrity), and A10 (SSRF) are partially covered or on the roadmap.
 
-API1 (Object Level Auth), API2 (Broken Auth), API3 (Property Auth — partial), API4 (Resource Consumption), API5 (Function Level Auth), API8 (Security Misconfiguration).
+### OWASP API Security Top 10 (2023)
 
-API6 / API9 / API10 are on the roadmap.
+API1 (Object Level Auth), API2 (Broken Auth), API3 (Object Property Auth — partial), API4 (Resource Consumption), API5 (Function Level Auth), API8 (Security Misconfiguration).
 
-### Test Patterns — 21 patterns, 100% checklist coverage
+API6, API9, API10 are on the roadmap.
 
-1. CRUD + DTO Validation (R11)
-2. XSS / Input Sanitization (R3, R4, R5)
-3. Error Handling (R6, R8, R22)
-4. JWT Security (R13, R16, R19, R20)
-5. Password Security (R15, R29, R30, R31)
-6. Brute Force Protection (R27)
-7. Timing Attack Prevention (R14)
-8. Replay Attack Detection (R32)
-9. RBAC / Privilege Escalation (R9, R24, R34)
-10. IDOR Prevention (R23)
-11. Session Management (R17, R18, R35)
-12. Forced Browsing / Token Per Request (R21, R33)
-13. Registration Security (R25, R26, R28)
-14. CORS Configuration (R38, R39, R40, R41)
-15. Cookie Security (R42, R51)
-16. HTTP Security Headers (R44-R50)
-17. Debug Mode & HTTP Methods (R43, R52, R53, R54)
-18. SQL Injection / ORM (R37)
-19. Rate Limiting (R55)
-20. File Upload Security (R57, R58, R59, R60)
-21. Audit Log (R10)
+### Test patterns (21)
+
+The skill ships with 21 reusable patterns under [references/test-patterns/](.claude/skills/goes-security-testing/references/test-patterns/):
+
+CRUD/DTO validation · XSS sanitization · Error handling · JWT security · Password security · Brute force · Timing attacks · Replay attacks · RBAC · IDOR · Session management · Forced browsing · Registration security · CORS · Cookie security · HTTP security headers · Debug & HTTP methods · SQL injection / ORM · Rate limiting · File upload · Audit log.
 
 ---
 
-## Reporter customization (v1.1)
+## Marking items as Not Applicable
 
-The bundled HTML reporter accepts options in the Jest config:
+When a checklist item does not apply to the project (e.g. R57-R60 file upload rules on a backend that never accepts uploads), do **not** use `it.skip()` (which loses metadata) or omit the item (which breaks GOES traceability). Use the `notApplicable()` API:
+
+```typescript
+it('R57-R60 — File upload rules', async () => {
+  const t = report();
+  t.epic('Archivos').feature('File Upload Security');
+  t.story('Backend does not handle file uploads');
+  t.severity('blocker');
+  t.tag('GOES Checklist R57', 'GOES Checklist R58', 'GOES Checklist R59', 'GOES Checklist R60');
+
+  t.notApplicable('Backend does not accept uploads: no multer dependency, no @UseInterceptors(FileInterceptor) anywhere, no multipart/form-data endpoints');
+
+  await t.flush();
+});
+```
+
+Such tests render as **skipped** (⊘ yellow) with an **N/A** badge and a yellow callout in the modal explaining why. They count in the Coverage cards as "covered" with an `N/A` annotation, preserving full traceability.
+
+---
+
+## Reporter customization
+
+Pass options to the bundled reporter in `test/security/jest-security-html.config.ts`:
 
 ```typescript
 [
@@ -185,7 +222,7 @@ The bundled HTML reporter accepts options in the Jest config:
   {
     outputPath: './reports/security/security-report.html',
     projectName: 'GOES — Sistema de Trámites',  // optional, falls back to package.json#name
-    reportTitle: 'Reporte de Seguridad GOES',   // optional
+    reportTitle: 'Security Test Report — GOES',  // optional
   },
 ],
 ```
@@ -193,31 +230,95 @@ The bundled HTML reporter accepts options in the Jest config:
 Two environment variables help in CI / parallel runs:
 
 | Variable | Purpose |
-|----------|---------|
+|---|---|
 | `SECURITY_REPORTER_RUN_ID` | Subdir per run under `$TMPDIR/security-html-reporter/<runId>` — required when running Jest with `--maxWorkers > 1` or when several CI jobs share a runner. |
 | `SECURITY_REPORTER_TEMP_DIR` | Full override of the metadata tempdir (use it when you need the metadata under your CI workspace). |
 
-See `.claude/skills/goes-security-testing/references/test-patterns/_html-reporter-customization.md` for branding, badge classification, GitHub Actions / GitLab CI snippets, and troubleshooting.
+See [`_html-reporter-customization.md`](.claude/skills/goes-security-testing/references/test-patterns/_html-reporter-customization.md) for branding, badge classification, GitHub Actions / GitLab CI snippets, and troubleshooting.
+
+---
+
+## Architecture
+
+```
+.claude/skills/goes-security-testing/
+├── SKILL.md                          ← instructions for Claude
+├── reporter/
+│   ├── html-reporter.js              ← Jest custom reporter (~2300 lines, JS)
+│   └── metadata.ts                   ← metadata collector + AllureCompat
+└── references/
+    ├── goes-checklist.md             ← 60-row GOES checklist
+    └── test-patterns/                ← 21 patterns + support files
+        ├── _setup.md
+        ├── _e2e-setup.md
+        ├── _orm-mocks.md
+        ├── _html-reporter-customization.md
+        ├── _severity-guide.md
+        ├── _recommendations.md
+        ├── 01-crud-validation.md
+        ├── ...
+        └── 21-audit-log.md
+```
+
+The reporter consists of two files:
+
+- **`reporter/html-reporter.js`** — Jest custom reporter (pure JavaScript, ~2300 lines). Reads metadata JSON files written by tests, merges with Jest results, generates a self-contained HTML.
+- **`reporter/metadata.ts`** — metadata collector. Exposes `report()` and `AllureCompat`. Each test registers epic, feature, story, severity, tags, parameters, steps, evidence, and optionally `notApplicable(reason)`.
+
+---
+
+## Demo
+
+A full presentation guide is at [`docs/DEMO.md`](docs/DEMO.md), including a 12-minute script, pre-flight checklist, recovery plan, and Q&A talking points for institutional audiences.
 
 ---
 
 ## Requirements
 
-- **NestJS** project with Jest configured.
-- **Node.js 18+**.
+- **NestJS** project with Jest configured
+- **Node.js 18+**
+- **Claude Code** (or Claude Cowork) for skill activation
+
+No Java required.
 
 ---
 
 ## Changelog
 
+### v1.2 (2026-04)
+
+**Coverage**
+- **Coverage cards** for GOES Checklist, OWASP Top 10, and OWASP API Top 10 with fraction, percentage, animated progress bar, and threshold colors.
+
+**Interactivity**
+- **Charts are interactive SVG** (not images) — hover tooltips with counts and percentages, click-to-filter the test table by status / severity / OWASP tag.
+- **Filter pill** with clear button when a chart filter is active.
+- **Dual search**: sidebar search filters the category tree only; new "Filter test results" search above the table filters rows.
+- **Sidebar collapsed by default** — top-level epics start collapsed (▶); user expands as needed.
+- **Fade-in animation** on test rows when filtering.
+
+**Modal enhancements**
+- **References section** with automatic OWASP links — tags like `OWASP A03` and `OWASP API1` resolve to official URLs (`owasp.org/Top10/...` and `owasp.org/API-Security/editions/2023/...`).
+- **Reproducibility section** — every test shows its file path (relative to project root), test name, and exact `npm` command to re-run, each with copy-to-clipboard buttons.
+- **Not Applicable support** — new `t.notApplicable(reason)` API on `report()` and `AllureCompat`. Renders as skipped (⊘) with **N/A** badge in the row, and a yellow callout in the modal explaining why.
+- **Input + output evidence convention** — SKILL.md now requires every test to register at least one `input` evidence and one `output` evidence, with recommended labels per test type (Pentest, CRUD, Auth, Config, Headers).
+
+**Reporter polish**
+- **Generation timestamp** in the header in `es-SV` locale for audit traceability.
+- **Print/PDF preview fixed** — header, charts, stats, and test details are now visible when exporting to PDF (previously hidden).
+- **Natural page scroll** — sidebar is sticky, content scrolls naturally instead of being trapped in nested overflow containers.
+- **Stat cards layout** is now `auto-fit` so adding/removing cards (e.g. when there are no N/A tests) does not break the layout.
+- **Not Applicable stat card** appears automatically when there are 1+ N/A tests.
+- **Absolute file paths no longer leaked** in the embedded report data — only relative paths are embedded.
+- **CommonJS reporter is intentional** — Jest loads reporters via `require()`, and the SKILL.md explicitly forbids converting it to TypeScript or ES modules.
+
 ### v1.1 (2026-04)
 
-- Reporter project name and report title are now parametrizable; the legacy hard-coded `'Portafolio IT Backend'` placeholder was removed.
-- New `SECURITY_REPORTER_RUN_ID` env var scopes metadata per process so parallel Jest workers and concurrent CI jobs no longer mix runs.
-- `createStatusChart()` now renders a "No tests" placeholder when zero tests run, instead of producing `NaN` paths in the SVG.
-- The 21 reference patterns were migrated from `allure-js-commons` to `AllureCompat` (bundled). Existing `await allure.epic(...)`, `await allure.step(...)` etc. work unchanged; the only mandatory addition is `await allure.flush()` at the end of each `it(...)`.
-- New `attachFor(allure)` helper exported from `metadata.ts` so legacy `attach('name', data)` calls keep their short shape.
-- New customization guide in `references/test-patterns/_html-reporter-customization.md` (the old `_allure-customization.md` is deprecated and kept as a stub).
+- Reporter project name and report title parametrizable.
+- `SECURITY_REPORTER_RUN_ID` env var scopes metadata per process for parallel Jest workers.
+- `createStatusChart()` renders a "No tests" placeholder when zero tests run, instead of `NaN` paths.
+- Patterns migrated from `allure-js-commons` to bundled `AllureCompat`.
+- New `attachFor(allure)` helper for legacy `attach('name', data)` calls.
 - Path typo fixed: `.claude/skills/goes-security-test/` → `.claude/skills/goes-security-testing/`.
 
 ### v1.0
@@ -226,14 +327,33 @@ See `.claude/skills/goes-security-testing/references/test-patterns/_html-reporte
 
 ---
 
+## Roadmap
+
+Items currently out of scope or partially covered, planned for future versions:
+
+- **A10 SSRF** test pattern.
+- **R12 payload size limit** test pattern.
+- **API3 mass assignment** explicit pattern.
+- **API6 unrestricted access to sensitive business flows** pattern.
+- **API9 / API10** patterns.
+- **Framework adapters** beyond NestJS (Express, Fastify).
+- **Baseline / diff** between runs to highlight regressions.
+- **SARIF export** for GitHub Code Scanning / GitLab Security Dashboard ingestion.
+- **Severity gates** in CI (e.g. `failOn: 'blocker'`).
+- **ISO 27001 / NIST 800-53** mapping in the GOES checklist.
+
+See [`_recommendations.md`](.claude/skills/goes-security-testing/references/test-patterns/_recommendations.md) for the per-project recommendation file Claude generates when items in the checklist are not yet implemented.
+
+---
+
 ## Contributing
 
-PRs are welcome for:
+Pull requests are welcome for:
 
-- Adding new test patterns in `references/test-patterns/` (especially the gaps: A10 SSRF, API3 mass assignment, API6 business flows, R12 payload size limit).
-- Updating the checklist in `references/goes-checklist.md`.
-- Improving skill instructions in `SKILL.md`.
-- Adding support for other frameworks (Express, Fastify, etc.).
+- New test patterns in [`references/test-patterns/`](.claude/skills/goes-security-testing/references/test-patterns/) — especially the roadmap gaps above.
+- Updates to the checklist in [`references/goes-checklist.md`](.claude/skills/goes-security-testing/references/goes-checklist.md).
+- Improvements to skill instructions in [`SKILL.md`](.claude/skills/goes-security-testing/SKILL.md).
+- Support for other frameworks (Express, Fastify, etc.).
 
 ### How to contribute
 
