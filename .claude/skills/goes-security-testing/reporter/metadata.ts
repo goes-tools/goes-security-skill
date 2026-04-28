@@ -73,6 +73,13 @@ export interface TestMetadata {
   parameters: Array<{ name: string; value: string }>;
   steps: string[];
   evidences: Array<{ name: string; data: unknown }>;
+  /**
+   * If set, the reporter overrides the test status to "skipped" and renders a
+   * Not Applicable badge with this reason. Use it when a checklist item does
+   * not apply to the project under test (e.g. R57-R60 file upload rules on a
+   * backend that does not accept uploads).
+   */
+  naReason?: string;
 }
 
 // ─── Reporter Class ─────────────────────────────────────────────
@@ -170,6 +177,26 @@ class SecurityTestReporter {
   }
 
   /**
+   * Mark this test as Not Applicable. The reporter overrides the test status
+   * to "skipped" and renders a Not Applicable badge with the given reason.
+   *
+   * Use it.skip() also works but loses metadata. notApplicable() keeps the
+   * test body running (so metadata is captured) and reports as skipped.
+   *
+   * Example:
+   *   it('R57-R60 — File upload rules', async () => {
+   *     const t = report();
+   *     t.epic('Archivos').feature('File Upload Security');
+   *     t.notApplicable('Backend does not accept uploads (no multer, no FileInterceptor)');
+   *     await t.flush();
+   *   });
+   */
+  notApplicable(reason: string): this {
+    this.meta.naReason = reason;
+    return this;
+  }
+
+  /**
    * Flush metadata to a temp JSON file.
    * The custom reporter reads these files in onRunComplete.
    */
@@ -216,6 +243,7 @@ export class AllureCompat {
   // patterns migrated from the legacy Allure API still type-check.
   description(text: string) { this.reporter.descriptionHtml(text); }
   parameter(name: string, value: unknown) { this.reporter.parameter(name, value); }
+  notApplicable(reason: string) { this.reporter.notApplicable(reason); }
 
   step<T = unknown>(name: string, fn?: () => T): T extends void ? this : T {
     return this.reporter.step(name, fn);

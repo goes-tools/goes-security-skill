@@ -78,11 +78,17 @@ class SecurityHtmlReporter {
         const key = `${testResult.testFilePath}::${assertion.fullName}`;
         const metadata = metadataMap.get(key);
 
+        // Not Applicable override: tests that call t.notApplicable(reason)
+        // are reported as "skipped" regardless of whether their assertions
+        // passed, so they show up distinct from real passes/fails.
+        const naReason = metadata?.naReason;
+        const effectiveStatus = naReason ? 'skipped' : assertion.status;
+
         const merged = {
           id: this.generateId(),
           name: assertion.title,
           fullName: assertion.fullName,
-          status: assertion.status ,
+          status: effectiveStatus,
           duration: assertion.duration || 0,
           filePath: testResult.testFilePath,
           errors: assertion.failureMessages || [],
@@ -98,18 +104,31 @@ class SecurityHtmlReporter {
           parameters: metadata?.parameters || [],
           steps: metadata?.steps || [],
           evidences: metadata?.evidences || [],
+          naReason: naReason,
         };
 
         mergedTests.push(merged);
       }
     }
 
-    // Build summary
+    // Build summary — recount from merged tests so naReason overrides are
+    // reflected (a test marked Not Applicable shifts from passed to skipped).
+    let passedCount = 0;
+    let failedCount = 0;
+    let skippedCount = 0;
+    let naCount = 0;
+    for (const t of mergedTests) {
+      if (t.status === 'passed') passedCount++;
+      else if (t.status === 'failed') failedCount++;
+      else if (t.status === 'skipped') skippedCount++;
+      if (t.naReason) naCount++;
+    }
     const summary = {
-      total: results.numTotalTests,
-      passed: results.numPassedTests,
-      failed: results.numFailedTests,
-      skipped: results.numPendingTests,
+      total: mergedTests.length,
+      passed: passedCount,
+      failed: failedCount,
+      skipped: skippedCount,
+      notApplicable: naCount,
       suites: results.testResults.length,
     };
 
@@ -182,6 +201,28 @@ class SecurityHtmlReporter {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
+    let generatedAtStr = '';
+    try {
+      generatedAtStr = new Date(reportData.meta.generatedAt).toLocaleString('es-SV', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    } catch (_) {
+      generatedAtStr = String(reportData.meta.generatedAt || '');
+    }
+    const escapedGeneratedAt = generatedAtStr
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    const escapedReporterVersion = String(reportData.meta.reporterVersion || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -201,12 +242,12 @@ class SecurityHtmlReporter {
         sans-serif;
       background: #1a1a2e;
       color: #e8e8e8;
-      overflow: hidden;
     }
 
     .container {
       display: flex;
-      height: 100vh;
+      min-height: 100vh;
+      align-items: stretch;
     }
 
     .sidebar {
@@ -215,7 +256,11 @@ class SecurityHtmlReporter {
       border-right: 1px solid #2a3a4a;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      height: 100vh;
+      flex-shrink: 0;
     }
 
     .sidebar-header {
@@ -318,7 +363,7 @@ class SecurityHtmlReporter {
       flex: 1;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      min-width: 0;
     }
 
     .header {
@@ -330,7 +375,20 @@ class SecurityHtmlReporter {
     .header-title {
       font-size: 28px;
       font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .header-project {
+      font-size: 13px;
+      color: #a0a0a0;
+      margin-bottom: 4px;
+    }
+
+    .header-meta {
+      font-size: 12px;
+      color: #7a8595;
       margin-bottom: 16px;
+      font-variant-numeric: tabular-nums;
     }
 
     .header-actions {
@@ -393,9 +451,77 @@ class SecurityHtmlReporter {
       max-height: 150px;
     }
 
+    .chart-svg .chart-segment {
+      cursor: pointer;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      transform-origin: center;
+    }
+
+    .chart-svg .chart-segment:hover {
+      opacity: 0.82;
+    }
+
+    .chart-svg .chart-segment.chart-segment-active {
+      opacity: 1;
+      filter: drop-shadow(0 0 6px rgba(59, 130, 246, 0.6));
+    }
+
+    .chart-svg .chart-segment.chart-segment-dim {
+      opacity: 0.35;
+    }
+
+    .chart-legend-item {
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+
+    .chart-legend-item:hover {
+      opacity: 0.75;
+    }
+
+    .filter-pill {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: #0f3460;
+      border: 1px solid #3b82f6;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #cbd5f5;
+      margin-left: 12px;
+    }
+
+    .filter-pill.visible {
+      display: inline-flex;
+    }
+
+    .filter-pill-clear {
+      background: none;
+      border: none;
+      color: #cbd5f5;
+      cursor: pointer;
+      padding: 0;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .filter-pill-clear:hover {
+      color: #fff;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .test-row {
+      animation: fadeInUp 0.18s ease-out both;
+    }
+
     .stats-row {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 12px;
       padding: 0 24px 24px 24px;
     }
@@ -422,25 +548,50 @@ class SecurityHtmlReporter {
     }
 
     .tests-section {
-      flex: 1;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
       padding: 24px;
+    }
+
+    .tests-section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
     }
 
     .tests-header {
       font-size: 14px;
       font-weight: 600;
       color: #a0a0a0;
-      margin-bottom: 12px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      margin: 0;
+    }
+
+    .tests-search {
+      flex: 1;
+      min-width: 200px;
+      max-width: 360px;
+      padding: 6px 12px 6px 30px;
+      background: #1a1a2e;
+      border: 1px solid #2a3a4a;
+      border-radius: 4px;
+      color: #e8e8e8;
+      font-size: 13px;
+      transition: border-color 0.2s;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%237a8595' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3ccircle cx='11' cy='11' r='8'/%3e%3cline x1='21' y1='21' x2='16.65' y2='16.65'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: 9px center;
+    }
+
+    .tests-search:focus {
+      outline: none;
+      border-color: #3b82f6;
     }
 
     .tests-table {
-      flex: 1;
-      overflow-y: auto;
       border: 1px solid #2a3a4a;
       border-radius: 6px;
       background: #1e2a3a;
@@ -534,6 +685,40 @@ class SecurityHtmlReporter {
 
     .badge-other {
       background: #6b7280;
+    }
+
+    .badge-na {
+      background: #475569;
+      color: #e2e8f0;
+      border: 1px solid #64748b;
+      letter-spacing: 0.5px;
+    }
+
+    .na-callout {
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-left: 3px solid #f59e0b;
+      border-radius: 4px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #fbbf24;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .na-callout-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 700;
+      color: #f59e0b;
+    }
+
+    .na-callout-reason {
+      color: #e2e8f0;
+      font-size: 13px;
+      line-height: 1.5;
     }
 
     .test-status {
@@ -817,43 +1002,84 @@ class SecurityHtmlReporter {
     }
 
     @media print {
-      .sidebar {
-        display: none;
+      body {
+        background: #fff;
+        color: #000;
+        overflow: visible;
+      }
+
+      .container {
+        display: block;
+        height: auto;
+        overflow: visible;
+      }
+
+      .sidebar,
+      .header-actions,
+      .modal-overlay,
+      .filter-pill {
+        display: none !important;
       }
 
       .main {
         width: 100%;
+        overflow: visible;
       }
 
-      .header-actions {
-        display: none;
+      .header,
+      .charts-row,
+      .stats-row,
+      .tests-section {
+        background: #fff !important;
+        border-color: #d1d5db !important;
+        page-break-inside: avoid;
       }
 
-      .modal-overlay {
-        display: none;
+      .header-title,
+      .header-project,
+      .header-meta,
+      .stat-value,
+      .test-name,
+      .test-duration {
+        color: #000 !important;
       }
 
+      .chart-card,
+      .stat-card,
       .tests-table {
-        border: none;
-        background: transparent;
+        background: #fff !important;
+        border: 1px solid #d1d5db !important;
+        color: #000 !important;
+      }
+
+      .chart-title,
+      .stat-label,
+      .tests-header {
+        color: #555 !important;
       }
 
       .test-row {
         page-break-inside: avoid;
-        border: 1px solid #2a3a4a;
-        margin-bottom: 8px;
+        border-bottom: 1px solid #d1d5db !important;
+        color: #000 !important;
+        animation: none;
       }
 
-      body {
-        background: transparent;
-        color: #000;
+      .test-row:hover {
+        background: transparent !important;
       }
 
-      .sidebar,
-      .header,
-      .charts-row,
-      .stats-row {
-        display: none;
+      .badge,
+      .badge-tag,
+      .badge-severity,
+      .chart-svg path,
+      .chart-svg rect {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .tests-table {
+        overflow: visible;
       }
     }
 
@@ -899,7 +1125,8 @@ class SecurityHtmlReporter {
     <div class="main">
       <div class="header">
         <div class="header-title">${escapedTitle}</div>
-        <div style="font-size: 13px; color: #a0a0a0; margin-bottom: 12px;">${escapedProject}</div>
+        <div class="header-project">${escapedProject}</div>
+        <div class="header-meta">Generated: ${escapedGeneratedAt} &middot; Reporter v${escapedReporterVersion}</div>
         <div class="header-actions">
           <button class="btn btn-primary" onclick="window.print()">
             📥 Export PDF
@@ -911,7 +1138,19 @@ class SecurityHtmlReporter {
       <div class="stats-row" id="statsRow"></div>
 
       <div class="tests-section">
-        <div class="tests-header">Test Results</div>
+        <div class="tests-section-header">
+          <div class="tests-header">Test Results</div>
+          <input
+            type="text"
+            class="tests-search"
+            id="testsSearch"
+            placeholder="Filter test results..."
+          />
+          <span id="filterPill" class="filter-pill">
+            <span id="filterPillLabel"></span>
+            <button class="filter-pill-clear" onclick="clearChartFilter()" title="Clear filter">✕</button>
+          </span>
+        </div>
         <div class="tests-table" id="testsTable"></div>
       </div>
     </div>
@@ -932,7 +1171,8 @@ class SecurityHtmlReporter {
       renderCharts();
       renderStats();
       renderTests();
-      setupSearch();
+      setupSidebarSearch();
+      setupTestsSearch();
     }
 
     function buildSidebar() {
@@ -1011,13 +1251,16 @@ class SecurityHtmlReporter {
 
       if (hasChildren) {
         const childrenContainer = document.createElement('div');
-        childrenContainer.className = 'sidebar-item-children';
+        childrenContainer.className = 'sidebar-item-children hidden';
 
         for (const [childKey, childNode] of Object.entries(node.children || {})) {
           childrenContainer.appendChild(createSidebarNode(childKey, childNode, depth + 1));
         }
 
         container.appendChild(childrenContainer);
+
+        const toggle = item.querySelector('.sidebar-toggle');
+        if (toggle) toggle.textContent = '▶';
       }
 
       return container;
@@ -1042,21 +1285,66 @@ class SecurityHtmlReporter {
 
       item.classList.add('active');
       filteredTests = tests;
+
+      document.querySelectorAll('.chart-segment').forEach((seg) => {
+        seg.classList.remove('chart-segment-active', 'chart-segment-dim');
+      });
+      const pill = document.getElementById('filterPill');
+      if (pill) pill.classList.remove('visible');
+
+      const testsSearch = document.getElementById('testsSearch');
+      if (testsSearch) testsSearch.value = '';
+
       renderTests();
     }
 
-    function setupSearch() {
+    function setupSidebarSearch() {
       const searchBox = document.getElementById('searchBox');
+      const sidebarContent = document.getElementById('sidebarContent');
+
       searchBox.addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase();
+        const query = e.target.value.toLowerCase().trim();
+
+        Array.from(sidebarContent.children).forEach((node) => {
+          if (
+            node.classList &&
+            node.classList.contains('sidebar-item') &&
+            node.dataset.filter === 'all'
+          ) {
+            return;
+          }
+
+          if (!query) {
+            node.style.display = '';
+            return;
+          }
+
+          const text = (node.textContent || '').toLowerCase();
+          node.style.display = text.includes(query) ? '' : 'none';
+        });
+      });
+    }
+
+    function setupTestsSearch() {
+      const searchBox = document.getElementById('testsSearch');
+      if (!searchBox) return;
+
+      searchBox.addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase().trim();
+
+        document.querySelectorAll('.chart-segment').forEach((seg) => {
+          seg.classList.remove('chart-segment-active', 'chart-segment-dim');
+        });
+        const pill = document.getElementById('filterPill');
+        if (pill) pill.classList.remove('visible');
 
         if (!query) {
           filteredTests = DATA.tests;
         } else {
           filteredTests = DATA.tests.filter((test) => {
-            const name = test.name.toLowerCase();
-            const fullName = test.fullName.toLowerCase();
-            const tags = test.tags.map((t) => t.toLowerCase()).join(' ');
+            const name = (test.name || '').toLowerCase();
+            const fullName = (test.fullName || '').toLowerCase();
+            const tags = (test.tags || []).map((t) => t.toLowerCase()).join(' ');
             const epic = (test.epic || '').toLowerCase();
             const feature = (test.feature || '').toLowerCase();
             const story = (test.story || '').toLowerCase();
@@ -1107,6 +1395,95 @@ class SecurityHtmlReporter {
       chartsRow.appendChild(statusCard);
       chartsRow.appendChild(severityCard);
       chartsRow.appendChild(owaspCard);
+
+      attachChartHandlers();
+    }
+
+    function attachChartHandlers() {
+      document.querySelectorAll('.chart-segment, .chart-legend-item').forEach((el) => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const type = el.dataset.filterType;
+          const value = el.dataset.filterValue;
+          if (type && value) {
+            applyChartFilter(type, value);
+          }
+        });
+      });
+    }
+
+    function applyChartFilter(type, value) {
+      let predicate;
+      let label;
+
+      if (type === 'status') {
+        predicate = (t) => t.status === value;
+        label = 'Status: ' + value;
+      } else if (type === 'severity') {
+        predicate = (t) => t.severity === value;
+        label = 'Severity: ' + value;
+      } else if (type === 'owasp') {
+        predicate = (t) => (t.tags || []).includes(value);
+        label = value;
+      } else {
+        return;
+      }
+
+      filteredTests = DATA.tests.filter(predicate);
+
+      document.querySelectorAll('.chart-segment').forEach((seg) => {
+        seg.classList.remove('chart-segment-active', 'chart-segment-dim');
+        if (seg.dataset.filterType === type && seg.dataset.filterValue === value) {
+          seg.classList.add('chart-segment-active');
+        } else {
+          seg.classList.add('chart-segment-dim');
+        }
+      });
+
+      const pill = document.getElementById('filterPill');
+      const pillLabel = document.getElementById('filterPillLabel');
+      if (pill && pillLabel) {
+        pillLabel.textContent = label;
+        pill.classList.add('visible');
+      }
+
+      document.querySelectorAll('.sidebar-item.active').forEach((el) => {
+        el.classList.remove('active');
+      });
+
+      const testsSearch = document.getElementById('testsSearch');
+      if (testsSearch) testsSearch.value = '';
+
+      renderTests();
+    }
+
+    function clearChartFilter() {
+      filteredTests = DATA.tests;
+
+      document.querySelectorAll('.chart-segment').forEach((seg) => {
+        seg.classList.remove('chart-segment-active', 'chart-segment-dim');
+      });
+
+      const pill = document.getElementById('filterPill');
+      if (pill) {
+        pill.classList.remove('visible');
+      }
+
+      const dashboard = document.querySelector('.sidebar-item[data-filter="all"]');
+      if (dashboard) {
+        dashboard.classList.add('active');
+      }
+
+      const searchBox = document.getElementById('searchBox');
+      if (searchBox) {
+        searchBox.value = '';
+        searchBox.dispatchEvent(new Event('input'));
+      }
+
+      const testsSearch = document.getElementById('testsSearch');
+      if (testsSearch) testsSearch.value = '';
+
+      renderTests();
     }
 
     function createStatusChart() {
@@ -1158,17 +1535,17 @@ class SecurityHtmlReporter {
 
       return \`
         <svg class="chart-svg" viewBox="0 0 \${size} \${size}" width="\${size}" height="\${size}">
-          <path d="\${passPath}" fill="#22c55e" stroke="none" />
-          \${failPercent > 0 ? \`<path d="\${failPath}" fill="#ef4444" stroke="none" />\` : ''}
-          \${skipPercent > 0 ? \`<path d="\${skipPath}" fill="#eab308" stroke="none" />\` : ''}
-          <circle cx="\${size / 2}" cy="\${size / 2}" r="\${radius * 0.55}" fill="#1e2a3a" />
-          <text x="\${size / 2}" y="\${size / 2}" text-anchor="middle" dy="0.3em" fill="#e8e8e8" font-size="16" font-weight="bold">\${passed}</text>
-          <text x="\${size / 2}" y="\${size / 2 + 14}" text-anchor="middle" dy="0.3em" fill="#a0a0a0" font-size="10">passed</text>
+          <path class="chart-segment" data-filter-type="status" data-filter-value="passed" d="\${passPath}" fill="#22c55e" stroke="none"><title>Passed: \${passed} (\${passPercent.toFixed(1)}%)</title></path>
+          \${failPercent > 0 ? \`<path class="chart-segment" data-filter-type="status" data-filter-value="failed" d="\${failPath}" fill="#ef4444" stroke="none"><title>Failed: \${failed} (\${failPercent.toFixed(1)}%)</title></path>\` : ''}
+          \${skipPercent > 0 ? \`<path class="chart-segment" data-filter-type="status" data-filter-value="skipped" d="\${skipPath}" fill="#eab308" stroke="none"><title>Skipped: \${skipped} (\${skipPercent.toFixed(1)}%)</title></path>\` : ''}
+          <circle cx="\${size / 2}" cy="\${size / 2}" r="\${radius * 0.55}" fill="#1e2a3a" pointer-events="none" />
+          <text x="\${size / 2}" y="\${size / 2}" text-anchor="middle" dy="0.3em" fill="#e8e8e8" font-size="16" font-weight="bold" pointer-events="none">\${passed}</text>
+          <text x="\${size / 2}" y="\${size / 2 + 14}" text-anchor="middle" dy="0.3em" fill="#a0a0a0" font-size="10" pointer-events="none">passed</text>
         </svg>
         <div style="font-size: 12px; margin-top: 8px; text-align: center;">
-          <div style="color: #22c55e;">✓ \${passed} passed</div>
-          <div style="color: #ef4444;">✗ \${failed} failed</div>
-          <div style="color: #eab308;">⊘ \${skipped} skipped</div>
+          <div class="chart-legend-item" data-filter-type="status" data-filter-value="passed" style="color: #22c55e;">✓ \${passed} passed</div>
+          <div class="chart-legend-item" data-filter-type="status" data-filter-value="failed" style="color: #ef4444;">✗ \${failed} failed</div>
+          <div class="chart-legend-item" data-filter-type="status" data-filter-value="skipped" style="color: #eab308;">⊘ \${skipped} skipped</div>
         </div>
       \`;
     }
@@ -1220,8 +1597,8 @@ class SecurityHtmlReporter {
           low: '#6b7280',
         };
 
-        svg += \`<rect x="\${x}" y="\${y}" width="\${barWidth}" height="\${height}" fill="\${colorMap[severity]}" rx="1" />\`;
-        svg += \`<text x="\${x + barWidth / 2}" y="\${chartHeight + 15}" text-anchor="middle" font-size="8" fill="#a0a0a0">\${severity.substring(0, 3)}</text>\`;
+        svg += \`<rect class="chart-segment" data-filter-type="severity" data-filter-value="\${severity}" x="\${x}" y="\${y}" width="\${barWidth}" height="\${height}" fill="\${colorMap[severity]}" rx="1"><title>\${severity}: \${count}</title></rect>\`;
+        svg += \`<text x="\${x + barWidth / 2}" y="\${chartHeight + 15}" text-anchor="middle" font-size="8" fill="#a0a0a0" pointer-events="none">\${severity.substring(0, 3)}</text>\`;
 
         x += barWidth + gap;
       }
@@ -1267,13 +1644,14 @@ class SecurityHtmlReporter {
         const [label, count] = topOwasp[i];
         const angle = (count / totalCount) * 360;
         const path = getDonutPath(size / 2, size / 2, 35, 50, currentAngle, currentAngle + angle);
+        const pct = ((count / totalCount) * 100).toFixed(1);
 
-        svg += \`<path d="\${path}" fill="\${colors[i % colors.length]}" stroke="#1e2a3a" stroke-width="1" />\`;
+        svg += \`<path class="chart-segment" data-filter-type="owasp" data-filter-value="\${label}" d="\${path}" fill="\${colors[i % colors.length]}" stroke="#1e2a3a" stroke-width="1"><title>\${label}: \${count} (\${pct}%)</title></path>\`;
 
         currentAngle += angle;
       }
 
-      svg += \`<circle cx="\${size / 2}" cy="\${size / 2}" r="30" fill="#1e2a3a" />\`;
+      svg += \`<circle cx="\${size / 2}" cy="\${size / 2}" r="30" fill="#1e2a3a" pointer-events="none" />\`;
       svg += '</svg>';
 
       return (
@@ -1282,7 +1660,7 @@ class SecurityHtmlReporter {
         topOwasp
           .map(
             ([label, count], i) =>
-              \`<div style="color: \${colors[i % colors.length]}; margin-bottom: 4px;">\${label}: \${count}</div>\`,
+              \`<div class="chart-legend-item" data-filter-type="owasp" data-filter-value="\${label}" style="color: \${colors[i % colors.length]}; margin-bottom: 4px;">\${label}: \${count}</div>\`,
           )
           .join('') +
         '</div>'
@@ -1376,11 +1754,19 @@ class SecurityHtmlReporter {
           label: 'Skipped',
           value: DATA.summary.skipped,
         },
-        {
-          label: 'Duration',
-          value: \`\${(DATA.meta.duration / 1000).toFixed(1)}s\`,
-        },
       ];
+
+      if (DATA.summary.notApplicable && DATA.summary.notApplicable > 0) {
+        stats.push({
+          label: 'Not Applicable',
+          value: DATA.summary.notApplicable,
+        });
+      }
+
+      stats.push({
+        label: 'Duration',
+        value: \`\${(DATA.meta.duration / 1000).toFixed(1)}s\`,
+      });
 
       for (const stat of stats) {
         const card = document.createElement('div');
@@ -1456,15 +1842,15 @@ class SecurityHtmlReporter {
 
         const tagsHtml = test.tags.length > 2 ? tags + \`<span class="badge badge-tag badge-other">+\${test.tags.length - 2}</span>\` : tags;
 
+        const severityCell = test.naReason
+          ? \`<span class="badge badge-na" title="\${escapeHtml(test.naReason)}">N/A</span>\`
+          : test.severity
+            ? \`<span class="badge badge-severity badge-\${test.severity}">\${test.severity.toUpperCase()}</span>\`
+            : '';
+
         row.innerHTML = \`
           <div class="test-name" title="\${escapeHtml(test.fullName)}">\${escapeHtml(test.name)}</div>
-          <div class="test-severity">
-            \${
-              test.severity
-                ? \`<span class="badge badge-severity badge-\${test.severity}">\${test.severity.toUpperCase()}</span>\`
-                : ''
-            }
-          </div>
+          <div class="test-severity">\${severityCell}</div>
           <div class="test-severity">\${tagsHtml}</div>
           <div class="test-status \${statusClass}">\${statusIcon}</div>
           <div class="test-duration">\${test.duration}ms</div>
@@ -1473,6 +1859,39 @@ class SecurityHtmlReporter {
         row.addEventListener('click', () => openModal(test));
         table.appendChild(row);
       }
+    }
+
+    const OWASP_TOP10_URLS = {
+      'OWASP A01': 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/',
+      'OWASP A02': 'https://owasp.org/Top10/A02_2021-Cryptographic_Failures/',
+      'OWASP A03': 'https://owasp.org/Top10/A03_2021-Injection/',
+      'OWASP A04': 'https://owasp.org/Top10/A04_2021-Insecure_Design/',
+      'OWASP A05': 'https://owasp.org/Top10/A05_2021-Security_Misconfiguration/',
+      'OWASP A06': 'https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/',
+      'OWASP A07': 'https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/',
+      'OWASP A08': 'https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/',
+      'OWASP A09': 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/',
+      'OWASP A10': 'https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/',
+    };
+
+    const OWASP_API_URLS = {
+      'OWASP API1': 'https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/',
+      'OWASP API2': 'https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/',
+      'OWASP API3': 'https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/',
+      'OWASP API4': 'https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/',
+      'OWASP API5': 'https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/',
+      'OWASP API6': 'https://owasp.org/API-Security/editions/2023/en/0xa6-unrestricted-access-to-sensitive-business-flows/',
+      'OWASP API7': 'https://owasp.org/API-Security/editions/2023/en/0xa7-server-side-request-forgery/',
+      'OWASP API8': 'https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/',
+      'OWASP API9': 'https://owasp.org/API-Security/editions/2023/en/0xa9-improper-inventory-management/',
+      'OWASP API10': 'https://owasp.org/API-Security/editions/2023/en/0xaa-unsafe-consumption-of-apis/',
+    };
+
+    function referenceUrl(tag) {
+      if (!tag) return null;
+      if (OWASP_TOP10_URLS[tag]) return OWASP_TOP10_URLS[tag];
+      if (OWASP_API_URLS[tag]) return OWASP_API_URLS[tag];
+      return null;
     }
 
     function openModal(test) {
@@ -1491,6 +1910,12 @@ class SecurityHtmlReporter {
         skipped: '#eab308',
       }[test.status];
 
+      const headerSeverityBadge = test.naReason
+        ? \`<span class="badge badge-na">N/A</span>\`
+        : test.severity
+          ? \`<span class="badge badge-severity badge-\${test.severity}">\${test.severity.toUpperCase()}</span>\`
+          : '';
+
       let content = \`
         <div class="modal-header">
           <div>
@@ -1500,12 +1925,8 @@ class SecurityHtmlReporter {
         </div>
         <div class="modal-content">
           <div class="modal-section">
-            <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 16px;">
-              \${
-                test.severity
-                  ? \`<span class="badge badge-severity badge-\${test.severity}">\${test.severity.toUpperCase()}</span>\`
-                  : ''
-              }
+            <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap;">
+              \${headerSeverityBadge}
               \${test.tags
                 .map((tag) => {
                   let badgeClass = 'badge-other';
@@ -1521,6 +1942,17 @@ class SecurityHtmlReporter {
             </div>
           </div>
       \`;
+
+      if (test.naReason) {
+        content += \`
+          <div class="modal-section">
+            <div class="na-callout">
+              <span class="na-callout-label">Not applicable to this project</span>
+              <span class="na-callout-reason">\${escapeHtml(test.naReason)}</span>
+            </div>
+          </div>
+        \`;
+      }
 
       if (test.epic || test.feature || test.story || test.owner) {
         content += \`
@@ -1575,12 +2007,22 @@ class SecurityHtmlReporter {
         \`;
       }
 
-      if (test.links.length > 0) {
+      const autoLinks = (test.tags || [])
+        .map((tag) => {
+          const url = referenceUrl(tag);
+          return url ? { name: tag, url, source: 'auto' } : null;
+        })
+        .filter(Boolean);
+
+      const explicitLinks = (test.links || []).map((l) => ({ ...l, source: 'explicit' }));
+      const allLinks = [...explicitLinks, ...autoLinks];
+
+      if (allLinks.length > 0) {
         content += \`
           <div class="modal-section">
-            <div class="modal-section-title">Links</div>
+            <div class="modal-section-title">References</div>
             <div class="links-list">
-              \${test.links
+              \${allLinks
                 .map(
                   (link) =>
                     \`<div class="link-item">🔗 <a href="\${escapeHtml(link.url)}" target="_blank" rel="noopener">\${escapeHtml(link.name)}</a></div>\`,

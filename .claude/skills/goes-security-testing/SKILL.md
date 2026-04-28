@@ -155,7 +155,11 @@ Antes de pasar al paso siguiente, generar un mapa interno con:
 - Que items del checklist NO se ven implementados -> marcar como "test que
   falla" o "test omitido" + recomendacion en `_recommendations.md`.
 - Que items NO aplican (por ejemplo, R57-R60 si el proyecto no maneja
-  archivos) -> omitir explicitamente.
+  archivos) -> generar el test de igual manera, pero llamar
+  `t.notApplicable('Reason')` en lugar de assertions reales. El reporter
+  los marca como skipped (icono ⊘ amarillo) con badge "N/A" y el motivo
+  en el modal. NO hacer `it.skip(...)` (pierde metadata) ni dejar el item
+  fuera del reporte (no queda trazabilidad).
 
 ---
 
@@ -392,7 +396,39 @@ it('nombre del test', async () => {
 | `tag` | SIEMPRE incluir: tag de categoria (Pentest, CRUD, Auth, Config) + tag de normativa (OWASP Axx, GOES Checklist Rxx) |
 | `parameter` | Inputs clave del test: payloads, emails, tokens, configuraciones |
 | `step` | Pasos descriptivos del test en formato Preparar/Ejecutar/Verificar |
-| `evidence` | Objetos JSON con datos de entrada/salida que se muestran con syntax highlighting en el reporte |
+| `evidence` | Objetos JSON con datos de entrada/salida. Ver "Regla critica: evidence" mas abajo. |
+
+### Regla critica: evidence (input + output)
+
+Cada test DEBE registrar **al menos dos** evidencias en este orden:
+
+1. **Input** — payload, parametros, configuracion o estado previo que el test envia al sistema.
+2. **Output** — respuesta, resultado, valor de retorno o estado final tras la ejecucion.
+
+Nombres recomendados (consistencia visual en el modal):
+
+| Tipo de test | Input label | Output label |
+|--------------|-------------|--------------|
+| Pentest      | `Attacker payload (input)` | `Defense response (output)` |
+| CRUD / DTO   | `Request body (input)` | `Service response (output)` |
+| Auth         | `Credentials (input)` | `Auth result (output)` |
+| Config       | `Config snapshot (input)` | `Effective behavior (output)` |
+| Headers / CORS | `Request (input)` | `Response headers (output)` |
+
+Ejemplo minimo:
+
+```typescript
+const payload = { email: "' OR 1=1 --" };
+t.evidence('Attacker payload (input)', payload);
+
+const result = await service.validate(payload);
+t.evidence('Defense response (output)', result);
+```
+
+Tests sin par input/output son **incompletos** y deben corregirse antes de
+commitear. Si un test legitimamente no tiene input (ej: verificar configuracion
+estatica de helmet), registrar un input descriptivo: `t.evidence('Initial state
+(input)', { helmetEnabled: true, headers: ['CSP', 'HSTS', 'XCT'] });`.
 
 ### Regla para tests de PENTEST
 
@@ -401,6 +437,44 @@ it('nombre del test', async () => {
 - Tag: 'Pentest' + referencia OWASP
 - Steps con ## Vulnerabilidad que previene y ## Defensa implementada
 - Evidence con payload del atacante (input) y respuesta de defensa (output)
+
+### Regla critica: items NO aplicables (notApplicable)
+
+Cuando un item del checklist GOES, OWASP o GOES no aplica al proyecto bajo
+test (ej: R57-R60 sobre file upload en un backend que no acepta archivos,
+MFA en un servicio sin sesiones de usuario, SSRF en una API sin egress
+externo, etc.) generar igualmente el test con metadata completa, pero usar
+`t.notApplicable('Razon especifica y verificable')` en vez de assertions
+reales:
+
+```typescript
+it('R57-R60 — File upload rules NO aplican', async () => {
+  const t = report();
+  t.epic('Archivos');
+  t.feature('File Upload Security');
+  t.story('Backend NO maneja archivos');
+  t.severity('blocker');
+  t.tag('GOES Checklist R57', 'GOES Checklist R58', 'GOES Checklist R59', 'GOES Checklist R60');
+
+  t.notApplicable('Backend no acepta uploads: no usa multer, no expone @UseInterceptors(FileInterceptor), no tiene endpoints multipart/form-data');
+
+  await t.flush();
+});
+```
+
+Reglas:
+- **NO usar `it.skip(...)`** — el body no se ejecuta y se pierde toda la
+  metadata (epic, feature, tags). El item queda invisible en el reporte.
+- **NO omitir el test** — el checklist GOES requiere trazabilidad explicita
+  de los 60 items, incluso los no aplicables.
+- **La razon debe ser verificable** — referenciar lo que SE BUSCO y NO se
+  encontro (paquetes no instalados, decoradores no usados, endpoints no
+  expuestos), no una afirmacion vaga ("no aplica al modulo").
+- En `AllureCompat`: `allure.notApplicable('reason')` funciona igual.
+
+El reporter marca estos tests como skipped (⊘ amarillo) con badge `N/A`,
+y muestra la razon en un callout dentro del modal de detalle. El stat card
+"Not Applicable" aparece cuando hay 1 o mas tests asi.
 
 ### Regla critica: flush()
 
@@ -598,7 +672,7 @@ Despues de generar todos los archivos:
 
 1. **NUNCA generar tests vacios o placeholder** — cada test debe tener assertions reales contra el codigo del proyecto.
 2. **Analizar el codigo real ANTES de escribir tests** — y no solo el `.service.ts`. Leer ademas, segun aplique: el `.controller.ts` (decoradores, rutas), los DTOs (`class-validator`), los guards/pipes/interceptors/filters/middleware del recurso, los decoradores custom (`@Roles`, `@Public`, `@CurrentUser`, etc.), los helpers/utils que hagan hashing/comparacion/sanitizacion, `main.ts` (pipes globales, helmet, CORS), y la entity/schema correspondiente. Sin esto, los tests asumen comportamientos que no existen y dan falsos positivos.
-3. **Si un item del checklist no aplica** al servicio actual (ej: el servicio no maneja archivos, no generar tests de R57-R60), documentar en un comentario que items se omitieron y por que.
+3. **Si un item del checklist no aplica** al servicio/proyecto actual (ej: R57-R60 si no maneja archivos), generar el test con metadata completa y llamar `t.notApplicable('motivo verificable')` en vez de assertions. Aparece como skipped (⊘) con badge N/A. NUNCA usar `it.skip(...)` ni omitir el item — se pierde la trazabilidad GOES.
 4. **Priorizar tests de seguridad** sobre tests funcionales. Cada servicio debe tener al minimo:
    - Tests funcionales (CRUD/logica) con epic 'Dominio'
    - Tests de validacion de entrada con epic 'Seguridad'
@@ -611,3 +685,4 @@ Despues de generar todos los archivos:
 10. **NO instalar Allure, allure-commandline ni Java** — este sistema usa un reporter custom puro Node.js que genera HTML directamente.
 11. **El reporter html-reporter.js DEBE ser JavaScript puro** — Jest carga reporters con `require()`, no pasa por ts-jest. Si necesitas modificarlo, no lo conviertas a TypeScript.
 12. **Los archivos de spec deben terminar en `.security-html.spec.ts`** — este es el patron que el jest config busca.
+13. **Cada test DEBE registrar al menos un par input + output en `t.evidence(...)`** — un evidence sin contraparte es incompleto. El primero captura el estado/payload de entrada, el segundo el resultado/respuesta. Ver "Regla critica: evidence (input + output)" mas arriba para nombres recomendados por tipo de test.
