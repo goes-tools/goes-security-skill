@@ -182,11 +182,11 @@ API1 (Object Level Auth), API2 (Broken Auth), API3 (Object Property Auth — par
 
 API6, API9, API10 are on the roadmap.
 
-### Test patterns (21)
+### Test patterns (22)
 
-The skill ships with 21 reusable patterns under [references/test-patterns/](.claude/skills/goes-security-testing/references/test-patterns/):
+The skill ships with 22 reusable patterns under [references/test-patterns/](.claude/skills/goes-security-testing/references/test-patterns/):
 
-CRUD/DTO validation · XSS sanitization · Error handling · JWT security · Password security · Brute force · Timing attacks · Replay attacks · RBAC · IDOR · Session management · Forced browsing · Registration security · CORS · Cookie security · HTTP security headers · Debug & HTTP methods · SQL injection / ORM · Rate limiting · File upload · Audit log.
+CRUD/DTO validation · XSS sanitization · Error handling · JWT security · Password security · Brute force · Timing attacks · Replay attacks · RBAC · IDOR · Session management · Forced browsing · Registration security · CORS · Cookie security · HTTP security headers · Debug & HTTP methods · SQL injection / ORM · Rate limiting · File upload · Audit log · Logout flow.
 
 ---
 

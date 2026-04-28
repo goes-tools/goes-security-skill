@@ -438,6 +438,45 @@ estatica de helmet), registrar un input descriptivo: `t.evidence('Initial state
 - Steps con ## Vulnerabilidad que previene y ## Defensa implementada
 - Evidence con payload del atacante (input) y respuesta de defensa (output)
 
+### Regla critica: codigo comentado cuenta como AUSENTE
+
+Cuando un test verifica la **presencia** de codigo en archivos fuente
+(`main.ts`, `app.module.ts`, controllers, etc.), un regex naive falla
+en el momento que un desarrollador **comenta** la linea en vez de
+borrarla. `// app.use(helmet());` haria pasar el test como si helmet
+estuviera activo, cuando en realidad no se esta ejecutando.
+
+**Regla**: todo test que inspeccione el source de un archivo y haga
+match por regex DEBE quitar los comentarios antes de buscar. Una linea
+comentada = codigo ausente.
+
+Helper canonico documentado en
+[`_static-analysis.md`](references/test-patterns/_static-analysis.md):
+
+```typescript
+const stripComments = (src: string): string =>
+  src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+const readSrc = (relativePath: string): string =>
+  stripComments(fs.readFileSync(path.resolve(__dirname, relativePath), 'utf-8'));
+```
+
+Uso obligatorio cuando:
+- Verificar middleware global en `main.ts` (helmet, CORS, ValidationPipe,
+  cookieParser, global guards/pipes/filters/interceptors).
+- Verificar imports y registros en `*.module.ts` (`ThrottlerModule`,
+  `JwtModule`, `ConfigModule`).
+- Verificar **ausencia** de patrones peligrosos (`$queryRawUnsafe`,
+  raw SQL, `eval(`, etc.).
+
+Cuando se puede usar `Reflect.getMetadata(...)` directamente sobre la
+clase (controllers con decoradores accesibles via import), preferir esa
+via — es mas directa y typed. La inspeccion de source con `stripComments`
+es para los casos donde no hay metadata expuesta en runtime (ej: el
+codigo de bootstrap en `main.ts`).
+
 ### Regla critica: cobertura de 3 capas para controles de defensa
 
 Un test que verifica **solo** la configuracion (env vars, module imports)
@@ -475,6 +514,124 @@ Items afectados por esta regla:
 
 NUNCA poner un test de control de defensa en un spec de "config-only".
 Cada test de control va en el spec del controller/service donde se aplica.
+
+### Regla critica: notApplicable vs hallazgo (NO confundir)
+
+`notApplicable` se reserva **exclusivamente** para items donde la
+**superficie de ataque** no existe en el proyecto. Si la superficie
+existe pero el control de defensa esperado **falta o esta mal
+implementado**, eso es un **HALLAZGO** (test rojo), NUNCA un N/A.
+
+**Arbol de decision** antes de escribir el test:
+
+```
+1. ¿El proyecto recibe/maneja este tipo de input o feature?
+   (uploads, cookies, JWT, sesiones, MFA, SSRF egress, archivos, etc.)
+   │
+   ├── NO existe la superficie → t.notApplicable(motivo verificable)
+   │   Ej: backend SOLO con endpoints JSON, sin multer ni
+   │   FileInterceptor → R57-R60 son N/A.
+   │
+   └── SI existe la superficie
+       │
+       2. ¿El control de defensa especifico esta implementado y correcto?
+       │
+       ├── SI bien → test pasa (verde ✓)
+       ├── SI pero mal → test FALLA (rojo ✗) — HALLAZGO
+       └── NO existe → test FALLA (rojo ✗) — HALLAZGO
+       │
+       NUNCA marcar como N/A si la superficie existe.
+```
+
+**Ejemplos canonicos**:
+
+| Estado del proyecto | R57 (Magic Bytes) | Justificacion |
+|---|---|---|
+| No usa multer, ni FileInterceptor | ⊘ N/A | Superficie ausente |
+| Usa multer, valida magic bytes con `file-type` | ✓ verde | Control implementado |
+| Usa multer, NO valida magic bytes | ✗ ROJO | **Hallazgo — superficie existe, defensa ausente** |
+| Usa multer, valida pero solo extension (no magic) | ✗ ROJO | **Hallazgo — defensa incompleta** |
+
+**Si Claude detecta que la superficie existe pero el control no esta**:
+
+1. NO marcar `t.notApplicable(...)`.
+2. NO escribir el test asumiendo que la defensa existe (eso es falso positivo).
+3. Generar el test igual con la assertion correcta (`expect(...).toThrow()`,
+   `expect(stripComments(src)).toMatch(...)`, etc.). El test falla en rojo
+   porque el codigo no lo cumple — eso es **exactamente el comportamiento
+   correcto**: un hallazgo de seguridad documentado en el reporte.
+4. Documentar el hallazgo en `_recommendations.md` con el detalle del
+   control faltante y la recomendacion concreta.
+
+**El reporte muestra el hallazgo (rojo). El auditor lo ve. El equipo lo
+arregla. El skill cumple su trabajo.** Ese es el flujo correcto.
+
+#### Esta regla es UNIVERSAL — aplica a los 54 items del checklist
+
+NO hay items "exentos" de esta regla. Por defecto, **ningun item del
+checklist se marca como N/A**. Para marcar N/A, hay que verificar
+explicitamente con `grep` que la superficie de la feature no existe
+en el proyecto.
+
+**Items que PUEDEN ser N/A** (feature-dependientes, lista cerrada):
+
+| Item | Es N/A solo si... | Verificacion (grep en src/) |
+|------|-------------------|------------------------------|
+| R28 — Account Recovery | El proyecto usa auth externa (SSO/OAuth) y NO tiene flujo propio de recuperacion | `grep -r "forgot.password\|reset.password\|recovery" src/` → 0 resultados |
+| R29 — Remember Me | No hay feature "recordarme" en el login | `grep -r "rememberMe\|remember.me\|persistent.login" src/` → 0 resultados |
+| R32 — Token Rotation | El proyecto usa SOLO access tokens cortos, sin refresh | `grep -r "refreshToken\|refresh.token\|/refresh" src/` → 0 resultados |
+| R35 — Session Inactivity | El proyecto es 100% stateless (no usa sesiones server-side) | `grep -r "express-session\|@nestjs/passport.*session\|sessionTimeout" src/` → 0 resultados |
+| R57-R60 — File Upload | El proyecto NO acepta uploads de archivos | `grep -r "multer\|FileInterceptor\|UploadedFile\|multipart/form-data" src/` → 0 resultados |
+| R6 — Robots/Sitemap | El backend no sirve contenido publico (solo APIs internas) | Verificar que no hay `@Public()` ni rutas servidas a no-autenticados |
+
+**Items que NUNCA pueden ser N/A** (universales — todo backend web los tiene):
+
+- R3, R4, R5 — Cualquier backend tiene responses e inputs.
+- R8 — Cualquier API HTTP devuelve errores.
+- R9, R11 — Cualquier endpoint recibe input que validar.
+- R10 — Cualquier sistema produce logs.
+- R13-R20 — Si hay autenticacion (la hay siempre en sistemas GOES).
+- R21-R27 — Si hay endpoints privados o registro/login.
+- R30, R31, R33, R34 — RBAC, password storage, validacion de token.
+- R37 — Cualquier app con base de datos.
+- R38-R41 — CORS aplica a toda API expuesta a un frontend.
+- R42, R51 — Cookies aplica si hay sesion o JWT en cookie (lo normal).
+- R43 — Debug mode aplica a toda app.
+- R44-R50 — Security headers aplican a toda respuesta HTTP.
+- R52-R54 — Metodos HTTP aplican a toda API.
+- R55 — Rate limiting aplica a toda API publica.
+
+**Si un item universal no esta implementado**: HALLAZGO (test rojo),
+no N/A. Por ejemplo:
+
+- Proyecto sin helmet → R44-R50 fallan en rojo (no se marcan N/A).
+- Proyecto sin rate limiting global → R55 falla en rojo (no se marca N/A).
+- Proyecto con queries raw concatenadas → R37 falla en rojo (no se marca N/A).
+
+**Procedimiento obligatorio antes de marcar cualquier item como N/A**:
+
+1. Revisar la tabla "Items que PUEDEN ser N/A" arriba. Si el item no
+   esta listado → **NO ES N/A**. Generar el test igual.
+2. Si el item esta listado, ejecutar el `grep` correspondiente sobre
+   `src/`. Si encuentra `>0` resultados → **NO ES N/A**.
+3. Solo si los pasos 1 y 2 confirman ausencia total de la superficie,
+   marcar `t.notApplicable('motivo verificable + comando grep usado')`.
+
+Ejemplo correcto de N/A:
+```typescript
+t.notApplicable(
+  'Backend no acepta file uploads. Verificado: ' +
+  'grep -r "multer|FileInterceptor|UploadedFile" src/ → 0 resultados, ' +
+  'package.json no incluye multer ni @nestjs/platform-express file extras.'
+);
+```
+
+Ejemplo INCORRECTO (que esta regla prohibe):
+```typescript
+// ❌ Marca N/A porque "el codigo no implementa magic bytes"
+t.notApplicable('Project does not validate magic bytes');
+// ↑ ESTO ES UN HALLAZGO, NO UN N/A. La superficie (uploads) existe.
+```
 
 ### Regla critica: items NO aplicables (notApplicable)
 

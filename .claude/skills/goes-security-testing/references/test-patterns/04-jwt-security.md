@@ -53,6 +53,60 @@ it('PENTEST: should enforce short-lived access tokens', async () => {
   await allure.flush();
 });
 
+// LAYER 3 (mandatory) — login MUST return BOTH accessToken and refreshToken.
+// If a developer changes the login response shape (e.g. only returns
+// accessToken), this test fails. Without this assertion, the report only
+// captures the absence as evidence and stays green.
+it('R13 — Login response includes both accessToken and refreshToken', async () => {
+  const t = report();
+  t.epic('Seguridad');
+  t.feature('Token Lifetime Enforcement');
+  t.story('El response de /auth/login devuelve accessToken Y refreshToken');
+  t.severity('blocker');
+  t.tag('Auth', 'OWASP A07', 'GOES Checklist R13', 'GOES Checklist R32');
+
+  prisma.user.findUnique.mockResolvedValue({
+    id: '1',
+    email: 'user@test.com',
+    password: await bcrypt.hash('password', 12),
+  });
+
+  t.evidence('Login attempt (input)', {
+    email: 'user@test.com',
+    expectedFields: ['accessToken', 'refreshToken'],
+  });
+
+  const tokens = await service.login(
+    { email: 'user@test.com', password: 'password' },
+    '1.2.3.4',
+    'ua',
+  );
+
+  t.step('Verify: accessToken is present and is a non-empty string');
+  expect(tokens).toHaveProperty('accessToken');
+  expect(typeof tokens.accessToken).toBe('string');
+  expect(tokens.accessToken.length).toBeGreaterThan(0);
+
+  t.step('Verify: refreshToken is present and is a non-empty string');
+  expect(tokens).toHaveProperty('refreshToken');
+  expect(typeof tokens.refreshToken).toBe('string');
+  expect(tokens.refreshToken.length).toBeGreaterThan(0);
+
+  t.step('Verify: accessToken and refreshToken are DIFFERENT values');
+  expect(tokens.accessToken).not.toBe(tokens.refreshToken);
+
+  t.step('Verify: each token has JWT shape (3 parts separated by dots)');
+  expect(tokens.accessToken.split('.').length).toBe(3);
+  expect(tokens.refreshToken.split('.').length).toBe(3);
+
+  t.evidence('Login response shape (output)', {
+    accessToken: { present: true, length: tokens.accessToken.length },
+    refreshToken: { present: true, length: tokens.refreshToken.length },
+    distinct: tokens.accessToken !== tokens.refreshToken,
+  });
+  await t.flush();
+});
+
 it('PENTEST: should use RS256 or ES256 for JWT signing', async () => {
   const allure = new AllureCompat();
   const attach = attachFor(allure);

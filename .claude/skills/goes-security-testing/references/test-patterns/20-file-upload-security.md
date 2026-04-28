@@ -12,6 +12,14 @@
 
 **Covers:** R57 (File Extension + Magic Byte Validation), R58 (File Extension Whitelist), R59 (File Size Limit), R60 (File UUID Rename)
 
+> **3 estados, no 2** (per SKILL.md "notApplicable vs hallazgo"):
+>
+> 1. Proyecto **NO** acepta uploads (sin `multer`, sin `FileInterceptor`, sin endpoints `multipart/form-data`) → marcar **R57-R60 como `t.notApplicable(...)`** con motivo verificable.
+> 2. Proyecto acepta uploads **y** implementa todas las defensas → tests pasan en verde.
+> 3. Proyecto acepta uploads **pero falta una o varias defensas** (magic bytes, whitelist, size limit, UUID rename) → tests **FALLAN en rojo**. ESTO ES UN HALLAZGO, **NO un N/A**. Documentarlo en `_recommendations.md`.
+>
+> Antes de marcar N/A, verificar con `grep` que **ningún** archivo del src usa multer, FileInterceptor, o `@nestjs/platform-express`'s file handling. Si hay aunque sea un endpoint con uploads, se generan los tests y los que fallen se reportan como rojos.
+
 ```typescript
 it('PENTEST: should validate file extension AND magic bytes', async () => {
   const allure = new AllureCompat();
