@@ -44,15 +44,36 @@ That's it. The skill auto-activates on phrases like *"security tests"*, *"GOES c
 
 ## Usage
 
-### Minimal trigger
+The skill is invoked with a short prompt in Claude Code. There are **two modes** — pick the one that fits your context:
+
+### Mode 1 — Audit-only (recommended for compliance, institutional pilots)
+
+Claude **only generates and runs tests**. If a test fails, it stays red as a finding. Claude does **not** touch your application code (`src/`). The team decides whether to fix the source or accept the risk.
 
 ```
-Generate security tests for this project with the goes-security-testing skill.
+Generá tests de seguridad para este proyecto con el skill
+goes-security-testing. Aplicá las reglas críticas del SKILL.md
+(3 capas, notApplicable solo con grep, input+output, stripComments).
+
+NO modifiques código fuente del proyecto (src/) para hacer pasar
+tests. Si un test falla, dejalo rojo y reportalo como hallazgo —
+el equipo decide si arreglar el código o aceptar el riesgo.
+Solo podés tocar test/security/, package.json (scripts/devDeps)
+y el reporter dentro de .claude/.
+
+Reporter:
+- projectName: "GOES — [Sistema]"
+- reportTitle: "Security Test Report — GOES [Sistema]"
+
+Al final, npm run test:security:html y resumen con cobertura,
+hallazgos rojos e ítems N/A con su grep.
 ```
 
-The skill reads `SKILL.md`, scans the project, generates tests, configures Jest, runs the suite, and produces the HTML report. `projectName` defaults to the value in `package.json#name`.
+**Use when**: you want a clean compliance report, a third-party audit, or a baseline before the team starts remediation. Findings stay visible in the HTML.
 
-### With customization
+### Mode 2 — Standard (lets Claude suggest and apply fixes)
+
+Claude generates the tests **and may also propose or apply fixes** to the source code if it identifies straightforward gaps (missing helmet, missing decorator, etc.). Useful during active development.
 
 ```
 Generate security tests for this project with the goes-security-testing skill.
@@ -61,6 +82,20 @@ Reporter:
 - projectName: "GOES — [System Name]"
 - reportTitle: "Security Test Report — GOES [System Name]"
 ```
+
+**Use when**: you are actively developing the project and want Claude to help close gaps as it finds them. Note that fixes applied this way should still be reviewed in PR before merging.
+
+### Minimal trigger
+
+```
+Generate security tests for this project with the goes-security-testing skill.
+```
+
+The skill reads `SKILL.md`, scans the project, generates tests, configures Jest, runs the suite, and produces the HTML report. `projectName` defaults to the value in `package.json#name`. By default this falls under Mode 2 (standard).
+
+### Replace `[Sistema]` / `[System Name]`
+
+In every prompt above, replace the placeholder with the real project name (e.g. `"GOES — Sistema de Trámites"`, `"GOES — Portal de Transparencia"`).
 
 ### Targeted regeneration
 
