@@ -125,25 +125,12 @@ The HTML lands at `reports/security/security-report.html` — open it in any bro
 - **Generation timestamp** in `es-SV` locale (e.g. `28/04/2026, 14:35:00`) for audit traceability.
 - Reporter version.
 
-### Coverage cards
-
-Three cards at the top showing compliance against each framework:
-
-| Card | What it tracks |
-|---|---|
-| **GOES Checklist** | 54 actionable items from the 60-row checklist (R3-R60, excluding header rows R1, R2, R7, R12, R36, R56) |
-| **OWASP Top 10** | A01-A10 (2021) |
-| **OWASP API Top 10** | API1-API10 (2023) |
-
-Each card displays the fraction (e.g. `47/54`), the percentage, an animated progress bar, and a breakdown (`X covered · Y N/A · Z pending`). Cards use threshold colors: green ≥ 90%, yellow 70-89%, red < 70%.
-
 ### Interactive charts
 
-Three SVG charts (not images) with native tooltips and click-to-filter:
+Two SVG charts (not images) with native tooltips and click-to-filter:
 
-- **Test Status** — pie chart (passed / failed / skipped). Click a slice to filter the table to those tests.
-- **Severity Distribution** — bar chart by `blocker / critical / high / normal / minor / trivial`.
-- **OWASP Coverage** — donut chart of top OWASP tags by frequency.
+- **Test Status** — donut chart (passed / failed / skipped). Click a slice to filter the table to those tests.
+- **Severity Distribution** — bar chart by `blocker / critical / high / normal / minor / trivial / skipped`. Click a bar to filter.
 
 A filter pill appears next to "Test Results" when a chart filter is active, with a clear button.
 
@@ -178,16 +165,16 @@ Click any row to open. Contents:
 
 - **Sidebar search** — filters the category tree.
 - **Tests search** — filters the result table.
-- **Chart click** — filters by status / severity / OWASP tag.
+- **Chart click** — filters by status or severity.
 - **Filter pill** — clears any chart filter.
 - **PDF export** — `Cmd/Ctrl+P` produces a print layout with header, charts, stats, and per-test detail visible. Suitable as an audit annex.
 
 ### Visual
 
 - Dark theme.
-- Smooth animations (chart hover, row fade-in, coverage bar fill).
+- Smooth animations (chart hover, row fade-in).
 - Native page scroll — sidebar is sticky, the rest scrolls.
-- Responsive grid for stats and coverage cards.
+- Responsive grid for stat cards.
 
 ---
 
@@ -243,7 +230,7 @@ it('R57-R60 — File upload rules', async () => {
 });
 ```
 
-Such tests render as **skipped** (⊘ yellow) with an **N/A** badge and a yellow callout in the modal explaining why. They count in the Coverage cards as "covered" with an `N/A` annotation, preserving full traceability.
+Such tests render as **skipped** (⊘) with a **Skipped** badge and a yellow callout in the modal explaining why. They are counted in the `Skipped` stat card, preserving full traceability.
 
 ---
 
@@ -322,11 +309,8 @@ No Java required.
 
 ### v1.2 (2026-04)
 
-**Coverage**
-- **Coverage cards** for GOES Checklist, OWASP Top 10, and OWASP API Top 10 with fraction, percentage, animated progress bar, and threshold colors.
-
 **Interactivity**
-- **Charts are interactive SVG** (not images) — hover tooltips with counts and percentages, click-to-filter the test table by status / severity / OWASP tag.
+- **Charts are interactive SVG** (not images) — hover tooltips with counts and percentages, click-to-filter the test table by status / severity.
 - **Filter pill** with clear button when a chart filter is active.
 - **Dual search**: sidebar search filters the category tree only; new "Filter test results" search above the table filters rows.
 - **Sidebar collapsed by default** — top-level epics start collapsed (▶); user expands as needed.
@@ -335,15 +319,20 @@ No Java required.
 **Modal enhancements**
 - **References section** with automatic OWASP links — tags like `OWASP A03` and `OWASP API1` resolve to official URLs (`owasp.org/Top10/...` and `owasp.org/API-Security/editions/2023/...`).
 - **Reproducibility section** — every test shows its file path (relative to project root), test name, and exact `npm` command to re-run, each with copy-to-clipboard buttons.
-- **Not Applicable support** — new `t.notApplicable(reason)` API on `report()` and `AllureCompat`. Renders as skipped (⊘) with **N/A** badge in the row, and a yellow callout in the modal explaining why.
+- **Not Applicable support** — new `t.notApplicable(reason)` API on `report()` and `AllureCompat`. Renders as skipped (⊘) with **Skipped** badge in the row, and a yellow callout in the modal explaining why.
 - **Input + output evidence convention** — SKILL.md now requires every test to register at least one `input` evidence and one `output` evidence, with recommended labels per test type (Pentest, CRUD, Auth, Config, Headers).
+
+**Skill rules (SKILL.md)**
+- **3-layer coverage rule** — defense controls require Layer 1 (config), Layer 2 (decorator/structural), and Layer 3 (behavior).
+- **Universal `notApplicable` rule** — only 6 items can ever be N/A (R6, R28, R29, R32, R35, R57-R60), each with a `grep` verifier; surface present + defense missing is a **finding**, not N/A.
+- **`stripComments` static helper** ([_static-analysis.md](.claude/skills/goes-security-testing/references/test-patterns/_static-analysis.md)) — required when verifying presence of code in `main.ts` / `*.module.ts`; commented code counts as absent.
+- **Audit-only mode (opt-in via prompt)** — when the prompt asks Claude not to modify `src/`, failing tests stay red as findings; the team decides whether to remediate.
 
 **Reporter polish**
 - **Generation timestamp** in the header in `es-SV` locale for audit traceability.
 - **Print/PDF preview fixed** — header, charts, stats, and test details are now visible when exporting to PDF (previously hidden).
 - **Natural page scroll** — sidebar is sticky, content scrolls naturally instead of being trapped in nested overflow containers.
-- **Stat cards layout** is now `auto-fit` so adding/removing cards (e.g. when there are no N/A tests) does not break the layout.
-- **Not Applicable stat card** appears automatically when there are 1+ N/A tests.
+- **Stat cards layout** is now `auto-fit` (responsive on any screen width).
 - **Absolute file paths no longer leaked** in the embedded report data — only relative paths are embedded.
 - **CommonJS reporter is intentional** — Jest loads reporters via `require()`, and the SKILL.md explicitly forbids converting it to TypeScript or ES modules.
 
