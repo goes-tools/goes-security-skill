@@ -177,6 +177,28 @@ class SecurityHtmlReporter {
       `   ${summary.total} tests | ${summary.passed} passed | ${summary.failed} failed | ${reportData.meta.duration}ms`,
     );
 
+    // Log failed tests with file paths for quick identification
+    if (summary.failed > 0) {
+      console.log(`\n❌ Failed tests:`);
+      for (const test of mergedTests) {
+        if (test.status === 'failed') {
+          const loc = test.relativePath ? ` (${test.relativePath})` : '';
+          console.log(`   ✗ ${test.fullName}${loc}`);
+          if (test.errors && test.errors.length > 0) {
+            // Show first line of first error, cleaned of ANSI codes
+            const firstErr = test.errors[0]
+              .replace(/\[[0-9;]*m/g, '')
+              .replace(/\x1b\[[0-9;]*m/g, '')
+              .split('\n')[0]
+              .trim();
+            if (firstErr) {
+              console.log(`     → ${firstErr}`);
+            }
+          }
+        }
+      }
+    }
+
     // Cleanup temp files
     if (fs.existsSync(tempDir)) {
       try {
@@ -346,7 +368,11 @@ class SecurityHtmlReporter {
     }
 
     .sidebar-indicator {
-      display: none;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-left: 4px;
+      flex-shrink: 0;
     }
 
     .indicator-pass {
@@ -417,10 +443,97 @@ class SecurityHtmlReporter {
       background: #2563eb;
     }
 
+    .coverage-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      padding: 24px 24px 0 24px;
+      background: #1a1a2e;
+    }
+
+    .coverage-card {
+      background: linear-gradient(135deg, #1e2a3a 0%, #1a2535 100%);
+      border: 1px solid #2a3a4a;
+      border-radius: 8px;
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .coverage-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--accent, #3b82f6);
+    }
+
+    .coverage-label {
+      font-size: 11px;
+      color: #a0a0a0;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .coverage-numbers {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .coverage-fraction {
+      font-size: 30px;
+      font-weight: 700;
+      color: #e8e8e8;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .coverage-percent {
+      font-size: 15px;
+      color: #a0a0a0;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .coverage-bar {
+      width: 100%;
+      height: 6px;
+      background: #0f1722;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .coverage-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      width: 0;
+      transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .coverage-bar-fill.high { background: linear-gradient(90deg, #22c55e, #16a34a); }
+    .coverage-bar-fill.medium { background: linear-gradient(90deg, #eab308, #ca8a04); }
+    .coverage-bar-fill.low { background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+    .coverage-card.high::before { background: #22c55e; }
+    .coverage-card.medium::before { background: #eab308; }
+    .coverage-card.low::before { background: #ef4444; }
+
+    .coverage-detail {
+      font-size: 11px;
+      color: #7a8595;
+      margin-top: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
     .charts-row {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
       padding: 24px;
       border-bottom: 1px solid #2a3a4a;
       background: #1a1a2e;
@@ -430,19 +543,19 @@ class SecurityHtmlReporter {
       background: #1e2a3a;
       border: 1px solid #2a3a4a;
       border-radius: 6px;
-      padding: 24px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
-      min-height: 380px;
+      justify-content: center;
+      min-height: 200px;
     }
 
     .chart-title {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       color: #a0a0a0;
-      margin-bottom: 20px;
+      margin-bottom: 12px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -450,7 +563,7 @@ class SecurityHtmlReporter {
     .chart-svg {
       width: 100%;
       height: auto;
-      max-height: 320px;
+      max-height: 150px;
     }
 
     .chart-svg .chart-segment {
@@ -663,8 +776,7 @@ class SecurityHtmlReporter {
     }
 
     .badge-minor {
-      background: #eab308;
-      color: #000;
+      background: #22c55e;
     }
 
     .badge-trivial,
@@ -1037,16 +1149,135 @@ class SecurityHtmlReporter {
 
     .error-list {
       background: #16213e;
-      padding: 12px;
-      border-radius: 4px;
+      padding: 0;
+      border-radius: 6px;
       border: 1px solid #2a3a4a;
+      overflow: hidden;
+    }
+
+    .error-item {
+      padding: 14px;
+      border-bottom: 1px solid #2a3a4a;
+    }
+
+    .error-item:last-child {
+      border-bottom: none;
+    }
+
+    .error-location {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      background: #1a1a2e;
+      border-radius: 4px;
       border-left: 3px solid #ef4444;
+      font-size: 12px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    }
+
+    .error-location-icon {
+      color: #ef4444;
+      flex-shrink: 0;
+    }
+
+    .error-location-file {
+      color: #93c5fd;
+      word-break: break-all;
+    }
+
+    .error-location-line {
+      color: #fbbf24;
+      flex-shrink: 0;
+    }
+
+    .error-expected-received {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .error-expected, .error-received {
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      line-height: 1.5;
+    }
+
+    .error-expected {
+      background: rgba(34, 197, 94, 0.08);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      color: #86efac;
+    }
+
+    .error-received {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+    }
+
+    .error-er-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      opacity: 0.7;
+    }
+
+    .error-message-text {
       font-size: 12px;
       font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
       color: #fca5a5;
       line-height: 1.5;
       white-space: pre-wrap;
       word-break: break-word;
+    }
+
+    .error-stack-toggle {
+      margin-top: 8px;
+      padding: 4px 10px;
+      background: #1a1a2e;
+      border: 1px solid #2a3a4a;
+      border-radius: 4px;
+      color: #a0a0a0;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .error-stack-toggle:hover {
+      background: #242f3f;
+      color: #e0e0e0;
+    }
+
+    .error-stack {
+      display: none;
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: #0d1117;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      color: #8b949e;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .error-stack.open {
+      display: block;
+    }
+
+    .test-file-path {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 2px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     }
 
     .empty-state {
@@ -1203,6 +1434,7 @@ class SecurityHtmlReporter {
         </div>
       </div>
 
+      <div class="coverage-row" id="coverageRow"></div>
       <div class="charts-row" id="chartsRow"></div>
       <div class="stats-row" id="statsRow"></div>
 
@@ -1235,13 +1467,126 @@ class SecurityHtmlReporter {
     let currentFilter = 'all';
     let filteredTests = DATA.tests;
 
+    const EXPECTED_GOES_IDS = [
+      'R3', 'R4', 'R5', 'R6',
+      'R8', 'R9', 'R10', 'R11',
+      'R13', 'R14', 'R15', 'R16', 'R17', 'R18', 'R19', 'R20',
+      'R21', 'R22', 'R23', 'R24', 'R25', 'R26', 'R27', 'R28', 'R29', 'R30',
+      'R31', 'R32', 'R33', 'R34', 'R35',
+      'R37', 'R38', 'R39', 'R40', 'R41', 'R42', 'R43', 'R44', 'R45',
+      'R46', 'R47', 'R48', 'R49', 'R50', 'R51', 'R52', 'R53', 'R54', 'R55',
+      'R57', 'R58', 'R59', 'R60',
+    ];
+
+    const EXPECTED_OWASP_TOP10 = [
+      'A01', 'A02', 'A03', 'A04', 'A05',
+      'A06', 'A07', 'A08', 'A09', 'A10',
+    ];
+
+    const EXPECTED_OWASP_API = [
+      'API1', 'API2', 'API3', 'API4', 'API5',
+      'API6', 'API7', 'API8', 'API9', 'API10',
+    ];
+
     function init() {
       buildSidebar();
+      renderCoverage();
       renderCharts();
       renderStats();
       renderTests();
       setupSidebarSearch();
       setupTestsSearch();
+    }
+
+    function extractIds(tests, regex) {
+      const covered = new Set();
+      const naCovered = new Set();
+      for (const test of tests) {
+        for (const tag of test.tags || []) {
+          const match = tag.match(regex);
+          if (match) {
+            const id = match[1].toUpperCase();
+            covered.add(id);
+            if (test.naReason) naCovered.add(id);
+          }
+        }
+      }
+      return { covered, naCovered };
+    }
+
+    function classForPercent(pct) {
+      if (pct >= 90) return 'high';
+      if (pct >= 70) return 'medium';
+      return 'low';
+    }
+
+    function renderCoverage() {
+      const row = document.getElementById('coverageRow');
+
+      const goes = extractIds(DATA.tests, /^GOES(?:\\s+Checklist)?\\s+(R\\d+)$/i);
+      const top10 = extractIds(DATA.tests, /^OWASP\\s+(A\\d{1,2})$/i);
+      const api = extractIds(DATA.tests, /^OWASP\\s+(API\\d{1,2})$/i);
+
+      const goesCovered = EXPECTED_GOES_IDS.filter((id) => goes.covered.has(id)).length;
+      const top10Covered = EXPECTED_OWASP_TOP10.filter((id) => top10.covered.has(id)).length;
+      const apiCovered = EXPECTED_OWASP_API.filter((id) => api.covered.has(id)).length;
+
+      const goesNA = EXPECTED_GOES_IDS.filter((id) => goes.naCovered.has(id)).length;
+      const top10NA = EXPECTED_OWASP_TOP10.filter((id) => top10.naCovered.has(id)).length;
+      const apiNA = EXPECTED_OWASP_API.filter((id) => api.naCovered.has(id)).length;
+
+      const cards = [
+        {
+          label: 'GOES Checklist',
+          covered: goesCovered,
+          total: EXPECTED_GOES_IDS.length,
+          na: goesNA,
+        },
+        {
+          label: 'OWASP Top 10',
+          covered: top10Covered,
+          total: EXPECTED_OWASP_TOP10.length,
+          na: top10NA,
+        },
+        {
+          label: 'OWASP API Top 10',
+          covered: apiCovered,
+          total: EXPECTED_OWASP_API.length,
+          na: apiNA,
+        },
+      ];
+
+      row.innerHTML = '';
+
+      for (const c of cards) {
+        const pct = c.total > 0 ? Math.round((c.covered / c.total) * 100) : 0;
+        const cls = classForPercent(pct);
+        const detail = c.na > 0
+          ? \`\${c.covered - c.na} covered · \${c.na} N/A · \${c.total - c.covered} pending\`
+          : \`\${c.covered} covered · \${c.total - c.covered} pending\`;
+
+        const card = document.createElement('div');
+        card.className = \`coverage-card \${cls}\`;
+        card.innerHTML = \`
+          <div class="coverage-label">\${c.label}</div>
+          <div class="coverage-numbers">
+            <span class="coverage-fraction">\${c.covered}/\${c.total}</span>
+            <span class="coverage-percent">\${pct}%</span>
+          </div>
+          <div class="coverage-bar">
+            <div class="coverage-bar-fill \${cls}" data-target="\${pct}"></div>
+          </div>
+          <div class="coverage-detail">\${detail}</div>
+        \`;
+        row.appendChild(card);
+      }
+
+      requestAnimationFrame(() => {
+        row.querySelectorAll('.coverage-bar-fill').forEach((bar) => {
+          const pct = bar.dataset.target;
+          bar.style.width = pct + '%';
+        });
+      });
     }
 
     function buildSidebar() {
@@ -1438,6 +1783,7 @@ class SecurityHtmlReporter {
 
       const statusChart = createStatusChart();
       const severityChart = createSeverityChart();
+      const owaspChart = createOwaspChart();
 
       const statusCard = document.createElement('div');
       statusCard.className = 'chart-card';
@@ -1453,8 +1799,16 @@ class SecurityHtmlReporter {
         \${severityChart}
       \`;
 
+      const owaspCard = document.createElement('div');
+      owaspCard.className = 'chart-card';
+      owaspCard.innerHTML = \`
+        <div class="chart-title">OWASP Coverage</div>
+        \${owaspChart}
+      \`;
+
       chartsRow.appendChild(statusCard);
       chartsRow.appendChild(severityCard);
+      chartsRow.appendChild(owaspCard);
 
       attachChartHandlers();
     }
@@ -1480,7 +1834,7 @@ class SecurityHtmlReporter {
         predicate = (t) => t.status === value;
         label = 'Status: ' + value;
       } else if (type === 'severity') {
-        predicate = (t) => t.severity === value && !t.naReason && t.status !== 'skipped';
+        predicate = (t) => t.severity === value;
         label = 'Severity: ' + value;
       } else if (type === 'owasp') {
         predicate = (t) => (t.tags || []).includes(value);
@@ -1597,7 +1951,7 @@ class SecurityHtmlReporter {
         <svg class="chart-svg" viewBox="0 0 \${size} \${size}" width="\${size}" height="\${size}">
           <path class="chart-segment" data-filter-type="status" data-filter-value="passed" d="\${passPath}" fill="#22c55e" stroke="none"><title>Passed: \${passed} (\${passPercent.toFixed(1)}%)</title></path>
           \${failPercent > 0 ? \`<path class="chart-segment" data-filter-type="status" data-filter-value="failed" d="\${failPath}" fill="#ef4444" stroke="none"><title>Failed: \${failed} (\${failPercent.toFixed(1)}%)</title></path>\` : ''}
-          \${skipPercent > 0 ? \`<path class="chart-segment" data-filter-type="status" data-filter-value="skipped" d="\${skipPath}" fill="#94a3b8" stroke="none"><title>Skipped: \${skipped} (\${skipPercent.toFixed(1)}%)</title></path>\` : ''}
+          \${skipPercent > 0 ? \`<path class="chart-segment" data-filter-type="status" data-filter-value="skipped" d="\${skipPath}" fill="#eab308" stroke="none"><title>Skipped: \${skipped} (\${skipPercent.toFixed(1)}%)</title></path>\` : ''}
           <circle cx="\${size / 2}" cy="\${size / 2}" r="\${radius * 0.55}" fill="#1e2a3a" pointer-events="none" />
           <text x="\${size / 2}" y="\${size / 2}" text-anchor="middle" dy="0.3em" fill="#e8e8e8" font-size="16" font-weight="bold" pointer-events="none">\${passed}</text>
           <text x="\${size / 2}" y="\${size / 2 + 14}" text-anchor="middle" dy="0.3em" fill="#a0a0a0" font-size="10" pointer-events="none">passed</text>
@@ -1605,70 +1959,60 @@ class SecurityHtmlReporter {
         <div style="font-size: 12px; margin-top: 8px; text-align: center;">
           <div class="chart-legend-item" data-filter-type="status" data-filter-value="passed" style="color: #22c55e;">✓ \${passed} passed</div>
           <div class="chart-legend-item" data-filter-type="status" data-filter-value="failed" style="color: #ef4444;">✗ \${failed} failed</div>
-          <div class="chart-legend-item" data-filter-type="status" data-filter-value="skipped" style="color: #94a3b8;">⊘ \${skipped} skipped</div>
+          <div class="chart-legend-item" data-filter-type="status" data-filter-value="skipped" style="color: #eab308;">⊘ \${skipped} skipped</div>
         </div>
       \`;
     }
 
     function createSeverityChart() {
-      const severities = ['blocker', 'critical', 'minor'];
+      const severities = [
+        'blocker',
+        'critical',
+        'high',
+        'normal',
+        'medium',
+        'minor',
+        'trivial',
+        'low',
+      ];
       const counts = {};
 
       for (const severity of severities) {
-        counts[severity] = DATA.tests.filter(
-          (t) => t.severity === severity && !t.naReason && t.status !== 'skipped',
-        ).length;
+        counts[severity] = DATA.tests.filter((t) => t.severity === severity).length;
       }
 
-      const naCount = DATA.tests.filter(
-        (t) => t.naReason || t.status === 'skipped',
-      ).length;
-
-      const colorMap = {
-        blocker: '#ef4444',
-        critical: '#ef4444',
-        high: '#f97316',
-        normal: '#eab308',
-        medium: '#eab308',
-        minor: '#eab308',
-        trivial: '#6b7280',
-        low: '#6b7280',
-        na: '#94a3b8',
-      };
-
-      const labelMap = {
-        blocker: 'Blocker',
-        critical: 'Critical',
-        high: 'High',
-        normal: 'Normal',
-        medium: 'Medium',
-        minor: 'Minor',
-        trivial: 'Trivial',
-        low: 'Low',
-        na: 'Skipped',
-      };
-
-      const bars = severities
-        .filter((s) => counts[s] > 0)
-        .map((s) => ({ key: s, filterType: 'severity', count: counts[s] }));
-
-      const maxCount = Math.max(...bars.map((b) => b.count), 1);
+      const maxCount = Math.max(...Object.values(counts), 1);
       const chartHeight = 100;
-      const barWidth = 48;
-      const gap = 14;
-      const labelOffset = 24;
-      const width = bars.length * (barWidth + gap) + 20;
+      const barWidth = 8;
+      const gap = 2;
+      const width = severities.length * (barWidth + gap) + 20;
 
-      let svg = \`<svg class="chart-svg" viewBox="0 0 \${width} \${chartHeight + labelOffset + 10}" width="\${width}" height="\${chartHeight + labelOffset + 10}">\`;
+      let svg = \`<svg class="chart-svg" viewBox="0 0 \${width} \${chartHeight + 20}" width="\${width}" height="\${chartHeight + 20}">\`;
 
       let x = 10;
-      for (const bar of bars) {
-        const height = (bar.count / maxCount) * chartHeight;
-        const y = chartHeight - height + 10;
-        const filterValue = bar.filterValue || bar.key;
+      for (const severity of severities) {
+        const count = counts[severity];
+        if (count === 0) {
+          x += barWidth + gap;
+          continue;
+        }
 
-        svg += \`<rect class="chart-segment" data-filter-type="\${bar.filterType}" data-filter-value="\${filterValue}" x="\${x}" y="\${y}" width="\${barWidth}" height="\${height}" fill="\${colorMap[bar.key]}" rx="2"><title>\${labelMap[bar.key]}: \${bar.count}</title></rect>\`;
-        svg += \`<text x="\${x + barWidth / 2}" y="\${chartHeight + labelOffset}" text-anchor="middle" font-size="11" font-weight="500" fill="#a0a0a0" pointer-events="none">\${labelMap[bar.key]}</text>\`;
+        const height = (count / maxCount) * chartHeight;
+        const y = chartHeight - height + 10;
+
+        const colorMap = {
+          blocker: '#ef4444',
+          critical: '#ef4444',
+          high: '#f97316',
+          normal: '#eab308',
+          medium: '#eab308',
+          minor: '#22c55e',
+          trivial: '#6b7280',
+          low: '#6b7280',
+        };
+
+        svg += \`<rect class="chart-segment" data-filter-type="severity" data-filter-value="\${severity}" x="\${x}" y="\${y}" width="\${barWidth}" height="\${height}" fill="\${colorMap[severity]}" rx="1"><title>\${severity}: \${count}</title></rect>\`;
+        svg += \`<text x="\${x + barWidth / 2}" y="\${chartHeight + 15}" text-anchor="middle" font-size="8" fill="#a0a0a0" pointer-events="none">\${severity.substring(0, 3)}</text>\`;
 
         x += barWidth + gap;
       }
@@ -1677,6 +2021,65 @@ class SecurityHtmlReporter {
       return svg;
     }
 
+    function createOwaspChart() {
+      const owaspMap = {};
+
+      for (const test of DATA.tests) {
+        for (const tag of test.tags) {
+          if (tag.startsWith('OWASP')) {
+            owaspMap[tag] = (owaspMap[tag] || 0) + 1;
+          }
+        }
+      }
+
+      const owaspEntries = Object.entries(owaspMap).sort(
+        ([, a], [, b]) => b - a,
+      );
+      const topOwasp = owaspEntries.slice(0, 5);
+
+      if (topOwasp.length === 0) {
+        return '<div style="text-align: center; color: #a0a0a0; padding: 20px;">No OWASP tags found</div>';
+      }
+
+      const size = 120;
+      const startAngle = -90;
+      let currentAngle = startAngle;
+      const totalCount = topOwasp.reduce((acc, [, count]) => acc + count, 0);
+
+      if (totalCount <= 0) {
+        return '<div style="text-align: center; color: #a0a0a0; padding: 20px;">No OWASP tags found</div>';
+      }
+
+      const colors = ['#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#ec4899'];
+
+      let svg = \`<svg class="chart-svg" viewBox="0 0 \${size} \${size}" width="\${size}" height="\${size}">\`;
+
+      for (let i = 0; i < topOwasp.length; i++) {
+        const [label, count] = topOwasp[i];
+        const angle = (count / totalCount) * 360;
+        const path = getDonutPath(size / 2, size / 2, 35, 50, currentAngle, currentAngle + angle);
+        const pct = ((count / totalCount) * 100).toFixed(1);
+
+        svg += \`<path class="chart-segment" data-filter-type="owasp" data-filter-value="\${label}" d="\${path}" fill="\${colors[i % colors.length]}" stroke="#1e2a3a" stroke-width="1"><title>\${label}: \${count} (\${pct}%)</title></path>\`;
+
+        currentAngle += angle;
+      }
+
+      svg += \`<circle cx="\${size / 2}" cy="\${size / 2}" r="30" fill="#1e2a3a" pointer-events="none" />\`;
+      svg += '</svg>';
+
+      return (
+        svg +
+        '<div style="font-size: 11px; margin-top: 8px;">' +
+        topOwasp
+          .map(
+            ([label, count], i) =>
+              \`<div class="chart-legend-item" data-filter-type="owasp" data-filter-value="\${label}" style="color: \${colors[i % colors.length]}; margin-bottom: 4px;">\${label}: \${count}</div>\`,
+          )
+          .join('') +
+        '</div>'
+      );
+    }
 
     function getArcPath(cx, cy, r, startAngle, endAngle) {
       const start = polarToCartesian(cx, cy, r, endAngle);
@@ -1767,6 +2170,12 @@ class SecurityHtmlReporter {
         },
       ];
 
+      if (DATA.summary.notApplicable && DATA.summary.notApplicable > 0) {
+        stats.push({
+          label: 'Not Applicable',
+          value: DATA.summary.notApplicable,
+        });
+      }
 
       stats.push({
         label: 'Duration',
@@ -1848,13 +2257,17 @@ class SecurityHtmlReporter {
         const tagsHtml = test.tags.length > 2 ? tags + \`<span class="badge badge-tag badge-other">+\${test.tags.length - 2}</span>\` : tags;
 
         const severityCell = test.naReason
-          ? \`<span class="badge badge-na" title="\${escapeHtml(test.naReason)}">Skipped</span>\`
+          ? \`<span class="badge badge-na" title="\${escapeHtml(test.naReason)}">N/A</span>\`
           : test.severity
             ? \`<span class="badge badge-severity badge-\${test.severity}">\${test.severity.toUpperCase()}</span>\`
             : '';
 
+        const filePathHtml = test.status === 'failed' && test.relativePath
+          ? \`<div class="test-file-path">\${escapeHtml(test.relativePath)}</div>\`
+          : '';
+
         row.innerHTML = \`
-          <div class="test-name" title="\${escapeHtml(test.fullName)}">\${escapeHtml(test.name)}</div>
+          <div class="test-name" title="\${escapeHtml(test.fullName)}">\${escapeHtml(test.name)}\${filePathHtml}</div>
           <div class="test-severity">\${severityCell}</div>
           <div class="test-severity">\${tagsHtml}</div>
           <div class="test-status \${statusClass}">\${statusIcon}</div>
@@ -1912,11 +2325,11 @@ class SecurityHtmlReporter {
       const statusColor = {
         passed: '#22c55e',
         failed: '#ef4444',
-        skipped: '#94a3b8',
+        skipped: '#eab308',
       }[test.status];
 
       const headerSeverityBadge = test.naReason
-        ? \`<span class="badge badge-na">Skipped</span>\`
+        ? \`<span class="badge badge-na">N/A</span>\`
         : test.severity
           ? \`<span class="badge badge-severity badge-\${test.severity}">\${test.severity.toUpperCase()}</span>\`
           : '';
@@ -2041,8 +2454,51 @@ class SecurityHtmlReporter {
       if (test.errors.length > 0) {
         content += \`
           <div class="modal-section">
-            <div class="modal-section-title">Errors</div>
-            <div class="error-list">\${test.errors.map((err) => escapeHtml(err)).join('\\n\\n')}</div>
+            <div class="modal-section-title">Errors (\${test.errors.length})</div>
+            <div class="error-list">
+              \${test.errors.map((err, idx) => {
+                const parsed = parseJestError(err, test.relativePath);
+                const errId = test.id + '-err-' + idx;
+                let html = '<div class="error-item">';
+
+                // Location block (file + line)
+                if (parsed.file || test.relativePath) {
+                  const displayFile = parsed.file || test.relativePath;
+                  const lineInfo = parsed.line ? \` : \${parsed.line}\` : '';
+                  html += \`
+                    <div class="error-location">
+                      <span class="error-location-icon">&#9679;</span>
+                      <span class="error-location-file">\${escapeHtml(displayFile)}\${lineInfo}</span>
+                      \${parsed.line ? \`<span class="error-location-line">line \${escapeHtml(parsed.line)}</span>\` : ''}
+                    </div>\`;
+                }
+
+                // Expected vs Received
+                if (parsed.expected || parsed.received) {
+                  html += '<div class="error-expected-received">';
+                  if (parsed.expected) {
+                    html += \`<div class="error-expected"><div class="error-er-label">Expected</div>\${escapeHtml(parsed.expected)}</div>\`;
+                  }
+                  if (parsed.received) {
+                    html += \`<div class="error-received"><div class="error-er-label">Received</div>\${escapeHtml(parsed.received)}</div>\`;
+                  }
+                  html += '</div>';
+                }
+
+                // Main error message (cleaned)
+                html += \`<div class="error-message-text">\${escapeHtml(parsed.message)}</div>\`;
+
+                // Collapsible stack trace
+                if (parsed.stack) {
+                  html += \`
+                    <button class="error-stack-toggle" onclick="toggleStack('\${errId}')">Show stack trace</button>
+                    <div class="error-stack" id="stack-\${errId}">\${escapeHtml(parsed.stack)}</div>\`;
+                }
+
+                html += '</div>';
+                return html;
+              }).join('')}
+            </div>
           </div>
         \`;
       }
@@ -2167,6 +2623,80 @@ class SecurityHtmlReporter {
           ok();
         } catch (_) {
           fail();
+        }
+      }
+    }
+
+    /**
+     * Parse a Jest failure message to extract structured info:
+     * - file path and line number
+     * - expected vs received values
+     * - cleaned message (without ANSI codes)
+     * - stack trace (separated)
+     */
+    function parseJestError(raw, fallbackFile) {
+      if (!raw) return { message: '', stack: '', file: '', line: '', expected: '', received: '' };
+
+      // Strip ANSI escape codes
+      const clean = raw.replace(/\\u001b\\[[0-9;]*m/g, '').replace(/\\x1b\\[[0-9;]*m/g, '');
+
+      let file = '';
+      let line = '';
+      let expected = '';
+      let received = '';
+      let message = '';
+      let stack = '';
+
+      // Extract file:line from stack trace patterns like "at Object.<anonymous> (path/file.ts:42:5)"
+      const fileLineMatch = clean.match(/at\\s+(?:Object\\.<anonymous>|[\\w.]+)\\s+\\((.+?):(\\d+):\\d+\\)/);
+      if (fileLineMatch) {
+        file = fileLineMatch[1];
+        line = fileLineMatch[2];
+      }
+
+      // Also try "● path/to/file.ts" pattern from Jest
+      if (!file) {
+        const suiteMatch = clean.match(/^\\s*(?:●|>)\\s+(.+\\.(?:ts|js|tsx|jsx))(?::(\\d+))?/m);
+        if (suiteMatch) {
+          file = suiteMatch[1];
+          if (suiteMatch[2]) line = suiteMatch[2];
+        }
+      }
+
+      // Extract Expected / Received
+      const expectedMatch = clean.match(/Expected[:\\s]+(.+)/);
+      const receivedMatch = clean.match(/Received[:\\s]+(.+)/);
+      if (expectedMatch) expected = expectedMatch[1].trim();
+      if (receivedMatch) received = receivedMatch[1].trim();
+
+      // Split message from stack
+      const stackIdx = clean.indexOf('\\n    at ');
+      if (stackIdx > -1) {
+        message = clean.substring(0, stackIdx).trim();
+        stack = clean.substring(stackIdx).trim();
+      } else {
+        message = clean.trim();
+      }
+
+      // If file is absolute, try to make it relative
+      if (file && file.startsWith('/')) {
+        const parts = file.split('/');
+        const srcIdx = parts.findIndex(p => p === 'test' || p === 'src');
+        if (srcIdx > -1) {
+          file = parts.slice(srcIdx).join('/');
+        }
+      }
+
+      return { message, stack, file: file || fallbackFile || '', line, expected, received };
+    }
+
+    function toggleStack(errId) {
+      const el = document.getElementById('stack-' + errId);
+      const btn = el?.previousElementSibling;
+      if (el) {
+        el.classList.toggle('open');
+        if (btn) {
+          btn.textContent = el.classList.contains('open') ? 'Hide stack trace' : 'Show stack trace';
         }
       }
     }
