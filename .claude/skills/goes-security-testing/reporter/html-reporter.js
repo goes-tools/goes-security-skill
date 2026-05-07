@@ -177,27 +177,6 @@ class SecurityHtmlReporter {
       `   ${summary.total} tests | ${summary.passed} passed | ${summary.failed} failed | ${reportData.meta.duration}ms`,
     );
 
-    // Log failed tests with file paths for quick identification
-    if (summary.failed > 0) {
-      console.log(`\n❌ Failed tests:`);
-      for (const test of mergedTests) {
-        if (test.status === 'failed') {
-          const loc = test.relativePath ? ` (${test.relativePath})` : '';
-          console.log(`   ✗ ${test.fullName}${loc}`);
-          if (test.errors && test.errors.length > 0) {
-            // Show first line of first error, cleaned of ANSI codes
-            const firstErr = test.errors[0]
-              .replace(/\[[0-9;]*m/g, '')
-              .replace(/\x1b\[[0-9;]*m/g, '')
-              .split('\n')[0]
-              .trim();
-            if (firstErr) {
-              console.log(`     → ${firstErr}`);
-            }
-          }
-        }
-      }
-    }
 
     // Cleanup temp files
     if (fs.existsSync(tempDir)) {
@@ -1149,193 +1128,16 @@ class SecurityHtmlReporter {
 
     .error-list {
       background: #16213e;
-      padding: 0;
-      border-radius: 6px;
-      border: 1px solid #2a3a4a;
-      overflow: hidden;
-    }
-
-    .error-item {
-      padding: 14px;
-      border-bottom: 1px solid #2a3a4a;
-    }
-
-    .error-item:last-child {
-      border-bottom: none;
-    }
-
-    .error-location {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
-      padding: 8px 12px;
-      background: #1a1a2e;
+      padding: 12px;
       border-radius: 4px;
+      border: 1px solid #2a3a4a;
       border-left: 3px solid #ef4444;
       font-size: 12px;
       font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    }
-
-    .error-location-icon {
-      color: #ef4444;
-      flex-shrink: 0;
-    }
-
-    .error-location-file {
-      color: #93c5fd;
-      word-break: break-all;
-    }
-
-    .error-location-line {
-      color: #fbbf24;
-      flex-shrink: 0;
-    }
-
-    .error-expected-received {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-
-    .error-expected, .error-received {
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      line-height: 1.5;
-    }
-
-    .error-expected {
-      background: rgba(34, 197, 94, 0.08);
-      border: 1px solid rgba(34, 197, 94, 0.2);
-      color: #86efac;
-    }
-
-    .error-received {
-      background: rgba(239, 68, 68, 0.08);
-      border: 1px solid rgba(239, 68, 68, 0.2);
-      color: #fca5a5;
-    }
-
-    .error-er-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-      opacity: 0.7;
-    }
-
-    .error-message-text {
-      font-size: 12px;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
       color: #fca5a5;
       line-height: 1.5;
       white-space: pre-wrap;
       word-break: break-word;
-    }
-
-    .error-remediation {
-      margin-top: 10px;
-      padding: 10px 14px;
-      background: rgba(59, 130, 246, 0.06);
-      border: 1px solid rgba(59, 130, 246, 0.2);
-      border-left: 3px solid #3b82f6;
-      border-radius: 4px;
-    }
-
-    .error-remediation-title {
-      font-size: 11px;
-      font-weight: 600;
-      color: #93c5fd;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-    }
-
-    .error-remediation-text {
-      font-size: 12px;
-      color: #cbd5e1;
-      line-height: 1.6;
-    }
-
-    .error-remediation-ref {
-      margin-top: 6px;
-      font-size: 11px;
-    }
-
-    .error-remediation-ref a {
-      color: #60a5fa;
-      text-decoration: none;
-    }
-
-    .error-remediation-ref a:hover {
-      text-decoration: underline;
-    }
-
-    .error-steps-context {
-      margin-top: 8px;
-      padding: 8px 12px;
-      background: rgba(234, 179, 8, 0.05);
-      border: 1px solid rgba(234, 179, 8, 0.15);
-      border-radius: 4px;
-      font-size: 12px;
-      color: #fde68a;
-      line-height: 1.6;
-    }
-
-    .error-steps-context-title {
-      font-size: 11px;
-      font-weight: 600;
-      color: #fbbf24;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-
-    .error-stack-toggle {
-      margin-top: 8px;
-      padding: 4px 10px;
-      background: #1a1a2e;
-      border: 1px solid #2a3a4a;
-      border-radius: 4px;
-      color: #6b7280;
-      font-size: 10px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .error-stack-toggle:hover {
-      background: #242f3f;
-      color: #9ca3af;
-    }
-
-    .error-stack {
-      display: none;
-      margin-top: 8px;
-      padding: 10px 12px;
-      background: #0d1117;
-      border-radius: 4px;
-      font-size: 11px;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      color: #8b949e;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-word;
-      max-height: 300px;
-      overflow-y: auto;
-    }
-
-    .error-stack.open {
-      display: block;
-    }
-
-    .test-file-path {
-      font-size: 11px;
-      color: #6b7280;
-      margin-top: 2px;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     }
 
     .empty-state {
@@ -2320,12 +2122,8 @@ class SecurityHtmlReporter {
             ? \`<span class="badge badge-severity badge-\${test.severity}">\${test.severity.toUpperCase()}</span>\`
             : '';
 
-        const filePathHtml = test.status === 'failed' && test.relativePath
-          ? \`<div class="test-file-path">\${escapeHtml(test.relativePath)}</div>\`
-          : '';
-
         row.innerHTML = \`
-          <div class="test-name" title="\${escapeHtml(test.fullName)}">\${escapeHtml(test.name)}\${filePathHtml}</div>
+          <div class="test-name" title="\${escapeHtml(test.fullName)}">\${escapeHtml(test.name)}</div>
           <div class="test-severity">\${severityCell}</div>
           <div class="test-severity">\${tagsHtml}</div>
           <div class="test-status \${statusClass}">\${statusIcon}</div>
@@ -2510,75 +2308,10 @@ class SecurityHtmlReporter {
       }
 
       if (test.errors.length > 0) {
-        const remediation = getRemediation(test.tags);
         content += \`
           <div class="modal-section">
-            <div class="modal-section-title">Errors (\${test.errors.length})</div>
-            <div class="error-list">
-              \${test.errors.map((err, idx) => {
-                const parsed = parseJestError(err, test.relativePath);
-                const errId = test.id + '-err-' + idx;
-                let html = '<div class="error-item">';
-
-                // Location block (file + line)
-                if (parsed.file || test.relativePath) {
-                  const displayFile = parsed.file || test.relativePath;
-                  const lineInfo = parsed.line ? \` : \${parsed.line}\` : '';
-                  html += \`
-                    <div class="error-location">
-                      <span class="error-location-icon">&#9679;</span>
-                      <span class="error-location-file">\${escapeHtml(displayFile)}\${lineInfo}</span>
-                      \${parsed.line ? \`<span class="error-location-line">line \${escapeHtml(parsed.line)}</span>\` : ''}
-                    </div>\`;
-                }
-
-                // Expected vs Received
-                if (parsed.expected || parsed.received) {
-                  html += '<div class="error-expected-received">';
-                  if (parsed.expected) {
-                    html += \`<div class="error-expected"><div class="error-er-label">Expected</div>\${escapeHtml(parsed.expected)}</div>\`;
-                  }
-                  if (parsed.received) {
-                    html += \`<div class="error-received"><div class="error-er-label">Received</div>\${escapeHtml(parsed.received)}</div>\`;
-                  }
-                  html += '</div>';
-                }
-
-                // Main error message (cleaned)
-                html += \`<div class="error-message-text">\${escapeHtml(parsed.message)}</div>\`;
-
-                // Steps context — show what was being verified when the error occurred
-                if (test.steps && test.steps.length > 0) {
-                  html += \`
-                    <div class="error-steps-context">
-                      <div class="error-steps-context-title">What was verified</div>
-                      \${test.steps.map(s => '<div>• ' + escapeHtml(s) + '</div>').join('')}
-                    </div>\`;
-                }
-
-                // Remediation advice — actionable fix based on OWASP tags
-                if (remediation) {
-                  html += \`
-                    <div class="error-remediation">
-                      <div class="error-remediation-title">How to fix (\${escapeHtml(remediation.tag)})</div>
-                      <div class="error-remediation-text">\${escapeHtml(remediation.text)}</div>
-                      <div class="error-remediation-ref">
-                        <a href="\${escapeHtml(remediation.url)}" target="_blank" rel="noopener">📖 OWASP Reference →</a>
-                      </div>
-                    </div>\`;
-                }
-
-                // Collapsible stack trace (discreet — raw Jest output)
-                if (parsed.stack) {
-                  html += \`
-                    <button class="error-stack-toggle" onclick="toggleStack('\${errId}')">Raw stack trace</button>
-                    <div class="error-stack" id="stack-\${errId}">\${escapeHtml(parsed.stack)}</div>\`;
-                }
-
-                html += '</div>';
-                return html;
-              }).join('')}
-            </div>
+            <div class="modal-section-title">Errors</div>
+            <div class="error-list">\${test.errors.map((err) => escapeHtml(err)).join('\\n\\n')}</div>
           </div>
         \`;
       }
@@ -2705,115 +2438,6 @@ class SecurityHtmlReporter {
           fail();
         }
       }
-    }
-
-    /**
-     * Parse a Jest failure message to extract structured info:
-     * - file path and line number
-     * - expected vs received values
-     * - cleaned message (without ANSI codes)
-     * - stack trace (separated)
-     */
-    function parseJestError(raw, fallbackFile) {
-      if (!raw) return { message: '', stack: '', file: '', line: '', expected: '', received: '' };
-
-      // Strip ANSI escape codes
-      const clean = raw.replace(/\\u001b\\[[0-9;]*m/g, '').replace(/\\x1b\\[[0-9;]*m/g, '');
-
-      let file = '';
-      let line = '';
-      let expected = '';
-      let received = '';
-      let message = '';
-      let stack = '';
-
-      // Extract file:line from stack trace patterns like "at Object.<anonymous> (path/file.ts:42:5)"
-      const fileLineMatch = clean.match(/at\\s+(?:Object\\.<anonymous>|[\\w.]+)\\s+\\((.+?):(\\d+):\\d+\\)/);
-      if (fileLineMatch) {
-        file = fileLineMatch[1];
-        line = fileLineMatch[2];
-      }
-
-      // Also try "● path/to/file.ts" pattern from Jest
-      if (!file) {
-        const suiteMatch = clean.match(/^\\s*(?:●|>)\\s+(.+\\.(?:ts|js|tsx|jsx))(?::(\\d+))?/m);
-        if (suiteMatch) {
-          file = suiteMatch[1];
-          if (suiteMatch[2]) line = suiteMatch[2];
-        }
-      }
-
-      // Extract Expected / Received
-      const expectedMatch = clean.match(/Expected[:\\s]+(.+)/);
-      const receivedMatch = clean.match(/Received[:\\s]+(.+)/);
-      if (expectedMatch) expected = expectedMatch[1].trim();
-      if (receivedMatch) received = receivedMatch[1].trim();
-
-      // Split message from stack
-      const stackIdx = clean.indexOf('\\n    at ');
-      if (stackIdx > -1) {
-        message = clean.substring(0, stackIdx).trim();
-        stack = clean.substring(stackIdx).trim();
-      } else {
-        message = clean.trim();
-      }
-
-      // If file is absolute, try to make it relative
-      if (file && file.startsWith('/')) {
-        const parts = file.split('/');
-        const srcIdx = parts.findIndex(p => p === 'test' || p === 'src');
-        if (srcIdx > -1) {
-          file = parts.slice(srcIdx).join('/');
-        }
-      }
-
-      return { message, stack, file: file || fallbackFile || '', line, expected, received };
-    }
-
-    function toggleStack(errId) {
-      const el = document.getElementById('stack-' + errId);
-      const btn = el?.previousElementSibling;
-      if (el) {
-        el.classList.toggle('open');
-        if (btn) {
-          btn.textContent = el.classList.contains('open') ? 'Hide stack trace' : 'Show stack trace';
-        }
-      }
-    }
-
-    // ── Remediation map ─────────────────────────────────────────
-    // Maps OWASP / GOES tags to human-readable fix recommendations.
-    const REMEDIATION_MAP = {
-      'OWASP A01': { text: 'Implement proper access control checks on every endpoint. Verify that the user has the required role/permission before processing the request. Use guards (e.g. @Roles decorator + RolesGuard) and validate resource ownership.', url: 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/' },
-      'OWASP A02': { text: 'Use strong cryptographic algorithms (bcrypt cost >= 12 for passwords, RS256 for JWT). Never store secrets in plain text. Ensure tokens have sufficient entropy (UUID v4 / 128+ bits).', url: 'https://owasp.org/Top10/A02_2021-Cryptographic_Failures/' },
-      'OWASP A03': { text: 'Validate and sanitize ALL user input. Use parameterized queries (Prisma/TypeORM) instead of raw SQL. Apply class-validator DTOs on every endpoint. Escape output to prevent XSS.', url: 'https://owasp.org/Top10/A03_2021-Injection/' },
-      'OWASP A04': { text: 'Review the design for missing security controls. Add rate limiting, account lockout, CAPTCHA for sensitive operations. Implement defense in depth — don\\'t rely on a single layer.', url: 'https://owasp.org/Top10/A04_2021-Insecure_Design/' },
-      'OWASP A05': { text: 'Review security headers (Helmet), CORS configuration, cookie flags (HttpOnly, Secure, SameSite), and ensure debug mode is disabled in production. Remove default credentials and unnecessary features.', url: 'https://owasp.org/Top10/A05_2021-Security_Misconfiguration/' },
-      'OWASP A07': { text: 'Implement brute-force protection (ThrottlerGuard), use generic error messages that don\\'t reveal whether a user exists, enforce strong password policies, and implement MFA where possible.', url: 'https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/' },
-      'OWASP A08': { text: 'Verify the integrity of software updates and CI/CD pipelines. Use signed commits, lock dependency versions, and validate that deserialized data has not been tampered with.', url: 'https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/' },
-      'OWASP A09': { text: 'Implement audit logging for security-relevant events (login, failed auth, privilege changes, data access). Ensure logs don\\'t contain sensitive data. Monitor and alert on suspicious patterns.', url: 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/' },
-      'OWASP API1': { text: 'Check object-level authorization on every request. Verify the authenticated user owns or has access to the requested resource. Don\\'t rely only on knowing the object ID.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/' },
-      'OWASP API2': { text: 'Protect authentication endpoints with rate limiting and account lockout. Use timing-safe comparison for credentials. Implement token rotation and revocation.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/' },
-      'OWASP API3': { text: 'Restrict which object properties users can read/write. Use DTOs with explicit field allowlists. Never return full database objects — pick only the fields the consumer needs.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/' },
-      'OWASP API4': { text: 'Implement rate limiting per user/IP, set max payload sizes, paginate list endpoints, and add timeouts. Prevent a single user from consuming excessive resources.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/' },
-      'OWASP API5': { text: 'Check function-level authorization. Ensure admin endpoints can\\'t be accessed by regular users. Verify role checks on every controller method, not just at the route level.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/' },
-      'OWASP API8': { text: 'Harden the API configuration: disable debug endpoints, enforce HTTPS, configure CORS strictly, set security headers, and remove default error pages that leak framework info.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/' },
-    };
-
-    /**
-     * Given a test's tags, find the best remediation advice.
-     * Returns { text, url, tag } or null.
-     */
-    function getRemediation(tags) {
-      if (!tags || !tags.length) return null;
-      // Prefer OWASP API > OWASP Top 10 > GOES (more specific first)
-      const apiTag = tags.find(t => t.startsWith('OWASP API'));
-      const owaspTag = tags.find(t => /^OWASP A\d/.test(t));
-      const tag = apiTag || owaspTag;
-      if (tag && REMEDIATION_MAP[tag]) {
-        return { ...REMEDIATION_MAP[tag], tag };
-      }
-      return null;
     }
 
     function escapeHtml(text) {
