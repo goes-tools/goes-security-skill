@@ -1236,21 +1236,79 @@ class SecurityHtmlReporter {
       word-break: break-word;
     }
 
+    .error-remediation {
+      margin-top: 10px;
+      padding: 10px 14px;
+      background: rgba(59, 130, 246, 0.06);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-left: 3px solid #3b82f6;
+      border-radius: 4px;
+    }
+
+    .error-remediation-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #93c5fd;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .error-remediation-text {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+
+    .error-remediation-ref {
+      margin-top: 6px;
+      font-size: 11px;
+    }
+
+    .error-remediation-ref a {
+      color: #60a5fa;
+      text-decoration: none;
+    }
+
+    .error-remediation-ref a:hover {
+      text-decoration: underline;
+    }
+
+    .error-steps-context {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: rgba(234, 179, 8, 0.05);
+      border: 1px solid rgba(234, 179, 8, 0.15);
+      border-radius: 4px;
+      font-size: 12px;
+      color: #fde68a;
+      line-height: 1.6;
+    }
+
+    .error-steps-context-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #fbbf24;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
     .error-stack-toggle {
       margin-top: 8px;
       padding: 4px 10px;
       background: #1a1a2e;
       border: 1px solid #2a3a4a;
       border-radius: 4px;
-      color: #a0a0a0;
-      font-size: 11px;
+      color: #6b7280;
+      font-size: 10px;
       cursor: pointer;
       transition: all 0.2s;
     }
 
     .error-stack-toggle:hover {
       background: #242f3f;
-      color: #e0e0e0;
+      color: #9ca3af;
     }
 
     .error-stack {
@@ -2452,6 +2510,7 @@ class SecurityHtmlReporter {
       }
 
       if (test.errors.length > 0) {
+        const remediation = getRemediation(test.tags);
         content += \`
           <div class="modal-section">
             <div class="modal-section-title">Errors (\${test.errors.length})</div>
@@ -2488,10 +2547,31 @@ class SecurityHtmlReporter {
                 // Main error message (cleaned)
                 html += \`<div class="error-message-text">\${escapeHtml(parsed.message)}</div>\`;
 
-                // Collapsible stack trace
+                // Steps context — show what was being verified when the error occurred
+                if (test.steps && test.steps.length > 0) {
+                  html += \`
+                    <div class="error-steps-context">
+                      <div class="error-steps-context-title">What was verified</div>
+                      \${test.steps.map(s => '<div>• ' + escapeHtml(s) + '</div>').join('')}
+                    </div>\`;
+                }
+
+                // Remediation advice — actionable fix based on OWASP tags
+                if (remediation) {
+                  html += \`
+                    <div class="error-remediation">
+                      <div class="error-remediation-title">How to fix (\${escapeHtml(remediation.tag)})</div>
+                      <div class="error-remediation-text">\${escapeHtml(remediation.text)}</div>
+                      <div class="error-remediation-ref">
+                        <a href="\${escapeHtml(remediation.url)}" target="_blank" rel="noopener">📖 OWASP Reference →</a>
+                      </div>
+                    </div>\`;
+                }
+
+                // Collapsible stack trace (discreet — raw Jest output)
                 if (parsed.stack) {
                   html += \`
-                    <button class="error-stack-toggle" onclick="toggleStack('\${errId}')">Show stack trace</button>
+                    <button class="error-stack-toggle" onclick="toggleStack('\${errId}')">Raw stack trace</button>
                     <div class="error-stack" id="stack-\${errId}">\${escapeHtml(parsed.stack)}</div>\`;
                 }
 
@@ -2699,6 +2779,41 @@ class SecurityHtmlReporter {
           btn.textContent = el.classList.contains('open') ? 'Hide stack trace' : 'Show stack trace';
         }
       }
+    }
+
+    // ── Remediation map ─────────────────────────────────────────
+    // Maps OWASP / GOES tags to human-readable fix recommendations.
+    const REMEDIATION_MAP = {
+      'OWASP A01': { text: 'Implement proper access control checks on every endpoint. Verify that the user has the required role/permission before processing the request. Use guards (e.g. @Roles decorator + RolesGuard) and validate resource ownership.', url: 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/' },
+      'OWASP A02': { text: 'Use strong cryptographic algorithms (bcrypt cost >= 12 for passwords, RS256 for JWT). Never store secrets in plain text. Ensure tokens have sufficient entropy (UUID v4 / 128+ bits).', url: 'https://owasp.org/Top10/A02_2021-Cryptographic_Failures/' },
+      'OWASP A03': { text: 'Validate and sanitize ALL user input. Use parameterized queries (Prisma/TypeORM) instead of raw SQL. Apply class-validator DTOs on every endpoint. Escape output to prevent XSS.', url: 'https://owasp.org/Top10/A03_2021-Injection/' },
+      'OWASP A04': { text: 'Review the design for missing security controls. Add rate limiting, account lockout, CAPTCHA for sensitive operations. Implement defense in depth — don\\'t rely on a single layer.', url: 'https://owasp.org/Top10/A04_2021-Insecure_Design/' },
+      'OWASP A05': { text: 'Review security headers (Helmet), CORS configuration, cookie flags (HttpOnly, Secure, SameSite), and ensure debug mode is disabled in production. Remove default credentials and unnecessary features.', url: 'https://owasp.org/Top10/A05_2021-Security_Misconfiguration/' },
+      'OWASP A07': { text: 'Implement brute-force protection (ThrottlerGuard), use generic error messages that don\\'t reveal whether a user exists, enforce strong password policies, and implement MFA where possible.', url: 'https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/' },
+      'OWASP A08': { text: 'Verify the integrity of software updates and CI/CD pipelines. Use signed commits, lock dependency versions, and validate that deserialized data has not been tampered with.', url: 'https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/' },
+      'OWASP A09': { text: 'Implement audit logging for security-relevant events (login, failed auth, privilege changes, data access). Ensure logs don\\'t contain sensitive data. Monitor and alert on suspicious patterns.', url: 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/' },
+      'OWASP API1': { text: 'Check object-level authorization on every request. Verify the authenticated user owns or has access to the requested resource. Don\\'t rely only on knowing the object ID.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/' },
+      'OWASP API2': { text: 'Protect authentication endpoints with rate limiting and account lockout. Use timing-safe comparison for credentials. Implement token rotation and revocation.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/' },
+      'OWASP API3': { text: 'Restrict which object properties users can read/write. Use DTOs with explicit field allowlists. Never return full database objects — pick only the fields the consumer needs.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/' },
+      'OWASP API4': { text: 'Implement rate limiting per user/IP, set max payload sizes, paginate list endpoints, and add timeouts. Prevent a single user from consuming excessive resources.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa4-unrestricted-resource-consumption/' },
+      'OWASP API5': { text: 'Check function-level authorization. Ensure admin endpoints can\\'t be accessed by regular users. Verify role checks on every controller method, not just at the route level.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa5-broken-function-level-authorization/' },
+      'OWASP API8': { text: 'Harden the API configuration: disable debug endpoints, enforce HTTPS, configure CORS strictly, set security headers, and remove default error pages that leak framework info.', url: 'https://owasp.org/API-Security/editions/2023/en/0xa8-security-misconfiguration/' },
+    };
+
+    /**
+     * Given a test's tags, find the best remediation advice.
+     * Returns { text, url, tag } or null.
+     */
+    function getRemediation(tags) {
+      if (!tags || !tags.length) return null;
+      // Prefer OWASP API > OWASP Top 10 > GOES (more specific first)
+      const apiTag = tags.find(t => t.startsWith('OWASP API'));
+      const owaspTag = tags.find(t => /^OWASP A\d/.test(t));
+      const tag = apiTag || owaspTag;
+      if (tag && REMEDIATION_MAP[tag]) {
+        return { ...REMEDIATION_MAP[tag], tag };
+      }
+      return null;
     }
 
     function escapeHtml(text) {
